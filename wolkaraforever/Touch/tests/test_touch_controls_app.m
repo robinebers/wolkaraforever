@@ -359,7 +359,9 @@ static void AKFixtureInputSource(void *context) {
                 assert(CGRectGetMaxY(controls.frame) <= CGRectGetMinY(host.keyboardLayoutGuide.layoutFrame));
                 assert(CGRectGetMinY(controls.frame) >= 0);
                 CGRect toolbarFrame = controls.frame;
-                assert(fabs(CGRectGetMidX(toolbarFrame) - CGRectGetMidX(host.safeAreaLayoutGuide.layoutFrame)) < 1);
+                // The Duo can have unequal horizontal insets. Keep the toolbar
+                // centred on the screen while typing, as it is with the keyboard closed.
+                assert(fabs(CGRectGetMidX(toolbarFrame) - CGRectGetMidX(host.bounds)) < 1);
                 assert(fabs(CGRectGetMinY(toolbarFrame) - CGRectGetMinY(host.safeAreaLayoutGuide.layoutFrame) - 8) < 1);
                 UITextView *input = (UITextView *)AKFindInputView(host, @"wolkaraforever.keyboard.draft");
                 UIButton *insert = (UIButton *)AKFindInputView(host, @"wolkaraforever.keyboard.insert");
