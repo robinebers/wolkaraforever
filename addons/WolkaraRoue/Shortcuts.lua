@@ -1,24 +1,23 @@
--- Interface mobile : les raccourcis du haut. Quatre gros boutons seulement, pour ce qu'on
--- ouvre tout le temps (sacs, grimoire, carte) et le Menu en tuiles pour tout le reste. Quand
--- le bouton de l'interface du jeu existe, on le « clique » de façon sécurisée, ce qui marche
--- aussi en combat ; sinon on appelle la fonction du jeu qui ouvre la même fenêtre.
+-- Top shortcuts for bags, spellbook, map, and the tile menu. Use a secure click on the original game
+-- button when available so the shortcut also works in combat. Otherwise call the game's window-
+-- opening function.
 
 local _, ns = ...
 
 local SIZE = 58
 local GAP = 12
 
-local Shortcuts = ns.Register("Raccourcis", {})
+local Shortcuts = ns.Register("Shortcuts", {})
 local bar
 
 local LIST = {
-    { label = "Sacs", icon = "Interface\\Icons\\INV_Misc_Bag_08", run = function()
+    { label = "Bags", icon = "Interface\\Icons\\INV_Misc_Bag_08", run = function()
         if ToggleAllBags then ToggleAllBags() elseif OpenAllBags then OpenAllBags() end
     end },
-    { label = "Sorts", icon = "Interface\\Icons\\INV_Misc_Book_09", click = "SpellbookMicroButton", run = function()
+    { label = "Spells", icon = "Interface\\Icons\\INV_Misc_Book_09", click = "SpellbookMicroButton", run = function()
         if ToggleSpellBook then ToggleSpellBook(BOOKTYPE_SPELL or "spell") end
     end },
-    { label = "Carte", icon = "Interface\\Icons\\INV_Misc_Map_01", run = function()
+    { label = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01", run = function()
         if ToggleWorldMap then ToggleWorldMap() end
     end },
     { label = "Menu", icon = "Interface\\Icons\\INV_Misc_Gear_01", menu = true },
@@ -43,7 +42,7 @@ local function MakeButton(info, index)
     local target = info.click and _G[info.click]
     local button
     if info.menu and ns.Menu and ns.Menu.frame then
-        -- Le Menu s'ouvre et se ferme comme une roue : en combat aussi.
+        -- The menu uses a secure toggle like a wheel and works during combat.
         button = CreateFrame("Button", name, bar, "SecureHandlerClickTemplate")
         button:RegisterForClicks("AnyUp")
         button:SetFrameRef("menu", ns.Menu.frame)
@@ -69,14 +68,13 @@ end
 
 function Shortcuts:Init()
     bar = CreateFrame("Frame", "WolkaraMobileShortcuts", UIParent)
-    bar:SetFrameStrata("LOW")  -- sous les fenêtres du jeu
+    bar:SetFrameStrata("LOW")  -- below game windows
     bar:SetSize(16 + #LIST * (SIZE + GAP) - GAP, SIZE + 30)
-    -- La barre ne prend les touchers qu'en mode Personnaliser : entre deux boutons, le
-    -- toucher va au jeu.
+    -- Capture touches between buttons only in Customize mode; otherwise pass them to the game.
     bar:EnableMouse(false)
     bar.back = ns.Box(bar, "BACKGROUND", 0, 0, 0, 0)
     bar.glow = ns.EditFrame(bar)
-    -- En haut, à droite du centre : le centre est la poignée de la barre de l'app.
+    -- Place the bar just right of center to leave room for the app toolbar handle.
     ns.Movable(bar, function() return ns.db.shortcuts end, "pos", { "TOP", "TOP", 190, -4 })
     for index, info in ipairs(LIST) do MakeButton(info, index) end
 end

@@ -1,23 +1,14 @@
--- Interface mobile : ce que l'on range de l'interface du jeu, parce que l'addon le remplace
--- par plus grand ou que c'est inutilisable au doigt.
---
---   barres de sorts (et l'expérience qu'elles portaient)  -> roues et boutons libres
---   cadres du joueur et de la cible                        -> barres de vie
---   suivi des objectifs sous la mini-carte                 -> carte des quêtes
---   le chat (rangé par le module Chat)                     -> chat mobile
---
--- Rien n'est caché : tout est rangé dans un cadre invisible, comme le font les addons de
--- barres d'action. Le jeu ne le réaffiche pas de lui-même, les raccourcis clavier ou manette
--- des barres marchent toujours, et chaque interrupteur du panneau Mobile remet en place.
+-- Move the original action bars, unit frames, and objective tracker into a hidden parent while their
+-- mobile replacements are active. This preserves keyboard and controller bindings and allows each
+-- settings switch to restore its original frames. Chat manages its own replacement.
 
 local _, ns = ...
 
-local Blizzard = ns.Register("Interface du jeu", {})
+local Blizzard = ns.Register("Game UI", {})
 local hider = CreateFrame("Frame")
 hider:Hide()
 
--- Selon la version du jeu, les cadres ne portent pas les mêmes noms : on prend ceux qui
--- existent.
+-- Frame names vary by client version. Use the ones that exist.
 local GROUPS = {
     bars = { "MainMenuBar", "MainActionBar", "MainMenuBarArtFrame", "MainMenuBarArtFrameBackground",
         "MultiBarBottomLeft", "MultiBarBottomRight", "MultiBarLeft", "MultiBarRight",
@@ -55,12 +46,12 @@ end
 function Blizzard:Layout()
     local settings = ns.db.blizzard
     Set("bars", settings.hideBars)
-    -- Les cadres d'origine ne partent que si nos barres de vie sont là pour les remplacer.
+    -- Hide the original unit frames only when the mobile health bars are enabled.
     Set("units", settings.hideUnitFrames and ns.db.hud.enabled)
     Set("tracker", ns.db.quests.enabled)
 end
 
--- Certains cadres sont créés plus tard (addons du jeu chargés à la demande).
+-- Some game frames appear later, when their add-ons load.
 ns.On("ADDON_LOADED", function()
     if ns.db and not InCombatLockdown() then Blizzard:Layout() end
 end)

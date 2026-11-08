@@ -1,18 +1,16 @@
--- Interface mobile : les boutons libres. Des sorts toujours à l'écran autour des deux sticks,
--- comme dans un jeu mobile : en roue qui tourne par défaut (Turn.lua), ou en arc. Chacun se
--- remplit par le sélecteur ; en arc, il se déplace en mode Personnaliser. Une case vide reste
--- discrète tant qu'on ne personnalise pas.
+-- Keep spells visible around both sticks, using rotating wheels (Turn.lua) or arcs. The picker fills
+-- slots; arc slots can be dragged in Customize mode. Empty slots are subdued during play.
 
 local _, ns = ...
 
 local SIZE = 64
--- Le centre des sticks de l'app, mesuré sur l'écran du Duo : à 12 % du bord, 22 % du bas.
+-- Stick centers measured on the Duo: 12% from the side and 22% from the bottom.
 local STICK_X, STICK_Y = 0.12, 0.222
 ns.STICK_X, ns.STICK_Y = STICK_X, STICK_Y
--- Première rangée serrée autour du stick, deuxième rangée au-delà.
+-- Place the first row close to the stick and the second farther out.
 local INNER, OUTER = 0.165, 0.275
 
-local Free = ns.Register("Boutons libres", {})
+local Free = ns.Register("Free buttons", {})
 local groups = {}
 
 local function Arc(side, index, count, spread)
@@ -26,7 +24,7 @@ local function Arc(side, index, count, spread)
         else
             radius, slot, slots = OUTER, index - 4, count - 4
         end
-        -- De la verticale vers l'intérieur de l'écran : de 90° à 180° à droite, de 90° à 0° à gauche.
+        -- Measure inward from vertical: 90 to 180 degrees on the right, 90 to 0 on the left.
         local t = slots <= 1 and 0.5 or (slot - 1) / (slots - 1)
         local degrees = side == "right" and (90 + 90 * t) or (90 - 90 * t)
         local distance = height * radius * (spread or 100) / 100
@@ -47,7 +45,7 @@ local function BuildGroup(side, key, prefix)
         local button = ns.CreateActionButton(prefix .. index, UIParent, SIZE,
             function() return store(index).entry end,
             function(entry) store(index).entry = entry end)
-        -- Sous les fenêtres du jeu (fiche, sacs, sorts), qui s'ouvrent par-dessus.
+        -- Let game windows such as bags and the spellbook open above these buttons.
         button:SetFrameStrata("LOW")
         button:RegisterForDrag("LeftButton")
         ns.Movable(button, function() return store(index) end, "pos",
@@ -65,7 +63,7 @@ local function BuildGroup(side, key, prefix)
 
     function group:Layout()
         local scale = settings().scale / 100
-        -- La roue qui tourne place elle-même ses sorts, et certains hors de l'écran.
+        -- The rotating wheel positions its own spells, including offscreen slots.
         local turning = ns.Turn and ns.Turn:Enabled(side)
         for index, button in ipairs(self.buttons) do
             if index <= settings().count then
@@ -107,7 +105,7 @@ function Free:Init()
 end
 
 function Free:Layout()
-    for _, group in ipairs(groups) do ns.Guard("boutons " .. group.side, group.Layout, group) end
+    for _, group in ipairs(groups) do ns.Guard("buttons " .. group.side, group.Layout, group) end
     self:Refresh()
 end
 

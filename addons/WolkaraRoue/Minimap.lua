@@ -1,11 +1,10 @@
--- Interface mobile : la mini-carte. Agrandie avec le reste de l'interface, elle prenait près
--- d'un tiers de la hauteur de l'écran et recouvrait le raccourci Menu. Le panneau Mobile règle
--- sa taille (60 % par défaut) ou la range, avec tout ce qui l'entoure (nom de la zone, heure,
--- suivi), dans un cadre invisible comme les autres cadres du jeu que l'addon remplace.
+-- The enlarged minimap could cover the Menu shortcut and occupy nearly a third of the screen height.
+-- Mobile settings scale it (60% by default) or move the minimap and its zone, clock, and tracking
+-- controls into a hidden parent.
 
 local _, ns = ...
 
-local Mini = ns.Register("Mini-carte", {})
+local Mini = ns.Register("Minimap", {})
 ns.Minimap = Mini
 local hider = CreateFrame("Frame")
 hider:Hide()
@@ -24,9 +23,9 @@ function Mini:Layout()
     end
 end
 
--- Le Mode Édition du jeu remet sa propre taille à la mini-carte : on repasse derrière.
+-- Reapply after the game's Edit Mode resets minimap scale.
 local function Again()
-    if ns.db and not InCombatLockdown() then ns.Guard("mini-carte", Mini.Layout, Mini) end
+    if ns.db and not InCombatLockdown() then ns.Guard("minimap", Mini.Layout, Mini) end
 end
 ns.On("EDIT_MODE_LAYOUTS_UPDATED", Again)
 ns.On("PLAYER_ENTERING_WORLD", function()

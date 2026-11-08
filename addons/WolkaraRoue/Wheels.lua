@@ -1,14 +1,12 @@
--- Interface mobile : les roues. Jusqu'à quatre, chacune avec son bouton doré (à placer où
--- l'on veut), son nombre de cases, sa taille et son ouverture : autour de son bouton, ou au
--- centre de l'écran. Le bouton ouvre et ferme la roue en combat aussi, parce qu'il est
--- sécurisé : le jeu le laisse faire.
+-- Up to four optional gold wheels, each with a movable button, configurable slots, size, and opening
+-- position. The secure toggle works in combat.
 
 local _, ns = ...
 
 local SLOT_SIZE = 64
 local TOGGLE_SIZE = 72
--- En proportion de l'écran : la roue 1 au bord droit au-dessus des sorts du stick droit, la
--- roue 2 au bord gauche, les roues 3 et 4 un peu plus vers l'intérieur.
+-- Default positions are proportional: wheel 1 right above the stick spells, wheel 2 on the left, and
+-- wheels 3 and 4 farther inward.
 local DEFAULT_TOGGLES = {
     ns.Spot(0.94, 0.55),
     ns.Spot(0.06, 0.50),
@@ -16,7 +14,7 @@ local DEFAULT_TOGGLES = {
     ns.Spot(0.20, 0.50),
 }
 
-local Wheels = ns.Register("Roues", {})
+local Wheels = ns.Register("Wheels", {})
 ns.Wheels = Wheels
 local wheels = {}
 
@@ -47,7 +45,7 @@ local function BuildWheel(index)
         wheel.slots[i] = slot
     end
 
-    -- Au centre : fermer.
+    -- Center button closes the wheel.
     local close = CreateFrame("Button", "WolkaraMobileRing" .. index .. "Close", ring, "SecureHandlerClickTemplate")
     close:SetSize(48, 48)
     close:SetPoint("CENTER")
@@ -60,10 +58,10 @@ local function BuildWheel(index)
     local closeHighlight = ns.Disc(close, "HIGHLIGHT", 1, 1, 1, 0.18, 0)
     closeHighlight:SetBlendMode("ADD")
 
-    -- Le bouton doré.
+    -- Gold toggle button.
     local toggle = CreateFrame("Button", "WolkaraMobileToggle" .. index, UIParent, "SecureHandlerClickTemplate")
     toggle:SetSize(TOGGLE_SIZE, TOGGLE_SIZE)
-    -- Sous les fenêtres du jeu : il restait par-dessus la fiche du personnage ouverte.
+    -- Keep the toggle below game windows so it cannot cover the character sheet.
     toggle:SetFrameStrata("LOW")
     toggle:RegisterForClicks("AnyUp")
     toggle:SetFrameRef("ring", ring)
@@ -78,7 +76,7 @@ local function BuildWheel(index)
     wheel.toggleIcon:SetAllPoints()
     wheel.toggleIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
     ns.Circle(toggle, wheel.toggleIcon)
-    local label = ns.Label(toggle, "GameFontNormal", index == 1 and "Roue" or ("Roue " .. index))
+    local label = ns.Label(toggle, "GameFontNormal", index == 1 and "Wheel" or ("Wheel " .. index))
     label:SetPoint("TOP", toggle, "BOTTOM", 0, -4)
     local toggleHighlight = ns.Disc(toggle, "HIGHLIGHT", 1, 1, 1, 0.2, 0)
     toggleHighlight:SetBlendMode("ADD")
@@ -100,7 +98,7 @@ local function BuildWheel(index)
         self.toggleIcon:SetTexture(ns.EntryIcon(Settings(index).entries[1]) or "Interface\\Icons\\INV_Misc_Book_09")
     end
 
-    -- Où la roue s'ouvre : autour de son bouton, sans sortir de l'écran, ou au centre.
+    -- Open around the toggle within the screen bounds or at screen center.
     function wheel:Place()
         if InCombatLockdown() then return end
         local settings = Settings(index)
@@ -163,7 +161,7 @@ function Wheels:Init()
 end
 
 function Wheels:Layout()
-    for _, wheel in ipairs(wheels) do ns.Guard("roue " .. wheel.index, wheel.Layout, wheel) end
+    for _, wheel in ipairs(wheels) do ns.Guard("wheel " .. wheel.index, wheel.Layout, wheel) end
 end
 
 function Wheels:Refresh()

@@ -1,4 +1,4 @@
--- The Interface mobile add-on's game windows (addons/WolkaraRoue/Windows.lua), run outside the
+-- The Mobile UI add-on's game windows (addons/WolkaraRoue/Windows.lua), run outside the
 -- game. A window that overflows the enlarged interface is made smaller, never larger. A quest
 -- window keeps its size and is kept between the sticks, clear of the left stick that used to take
 -- the "Complete quest" touch; a window too wide for that goes above the sticks; the world map

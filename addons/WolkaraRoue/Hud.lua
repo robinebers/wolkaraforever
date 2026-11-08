@@ -1,12 +1,10 @@
--- Interface mobile : les barres de vie. Ton personnage en haut à gauche (vie, ressource,
--- expérience), ta cible en haut au centre (vie, ressource, effets, points de combo), comme
--- dans un jeu mobile. Toucher ta barre te cible toi-même (pour un soin), toucher celle de la
--- cible la garde ciblée. La barre de la cible n'apparaît qu'avec une cible, et c'est le jeu
--- qui la montre ou la cache, combat compris.
+-- Player health, resource, and XP appear at top left. Target health, resource, effects, and combo
+-- points appear at top center. Tapping a unit bar targets that unit. The game controls target
+-- visibility, including during combat.
 
 local _, ns = ...
 
-local Hud = ns.Register("Barres de vie", {})
+local Hud = ns.Register("Health bars", {})
 local player, target
 local MAX_AURAS = 10
 local AURA_SIZE = 30
@@ -45,15 +43,15 @@ end
 local function Unit(name, unit, width, default)
     local frame = CreateFrame("Button", name, UIParent, "SecureUnitButtonTemplate")
     frame:SetSize(width, unit == "player" and 66 or 58)
-    -- Sous les fenêtres du jeu (fiche, sacs, sorts), qui s'ouvrent par-dessus.
+    -- Keep the HUD below game windows such as bags and the spellbook.
     frame:SetFrameStrata("LOW")
     frame:RegisterForClicks("AnyUp")
     frame:SetAttribute("unit", unit)
     frame:SetAttribute("type1", "target")
     frame.unit = unit
     ns.Box(frame, "BACKGROUND", 0, 0, 0, 0.4)
-    -- Ton portrait, à gauche de tes barres : le toucher ouvre la fiche du personnage sans passer
-    -- par le menu, par un clic sur le bouton Personnage du jeu (le combat le permet).
+    -- The portrait opens the character sheet through the game's Character button, including in
+    -- combat.
     local left = 0
     if unit == "player" then
         local portrait = CreateFrame("Button", "WolkaraMobilePortrait", frame, "SecureActionButtonTemplate")
@@ -94,11 +92,11 @@ local function Unit(name, unit, width, default)
         frame.xp:SetPoint("TOPRIGHT", frame.power, "BOTTOMRIGHT", 0, -2)
         frame.xp.text:SetText("")
     else
-        -- Points de combo, à droite du nom.
+        -- Display combo points to the right of the name.
         frame.combo = ns.Label(frame, "GameFontNormalLarge")
         frame.combo:SetPoint("TOPRIGHT", -8, -1)
         frame.combo:SetTextColor(1, 0.85, 0.2)
-        -- Effets sous la barre : ceux qui gênent d'abord, puis les autres.
+        -- Display harmful effects first below the bar.
         frame.auras = {}
         for i = 1, MAX_AURAS do
             local aura = CreateFrame("Frame", nil, frame)
@@ -213,8 +211,8 @@ function Hud:Layout()
         frame:PlaceSaved()
     end
     if on then player:Show() else player:Hide() end
-    -- La cible : le jeu la montre quand il y en a une. En mode Personnaliser, elle reste
-    -- visible pour pouvoir la déplacer.
+    -- Let the game show the target frame when a target exists. Keep it visible for dragging in
+    -- Customize mode.
     if UnregisterUnitWatch then UnregisterUnitWatch(target) end
     if on and ns.editing then
         target:Show()
@@ -240,7 +238,7 @@ end
 function Hud:SetEditing(on)
     player.glow:SetShown(on)
     target.glow:SetShown(on)
-    if on and not UnitExists("target") then target.name:SetText("Cible") end
+    if on and not UnitExists("target") then target.name:SetText("Target") end
 end
 
 local function Changed(unit)

@@ -1,4 +1,4 @@
--- The Interface mobile add-on's settings (addons/WolkaraRoue/Core.lua), run outside the game: a
+-- The Mobile UI add-on's settings (addons/WolkaraRoue/Core.lua), run outside the game: a
 -- 0.5 save moves to 0.6 once. The golden wheel's spells go into the left turning wheel, in its
 -- free places and without duplicates, and the golden wheel is switched off but keeps them; the
 -- left wheel turns and shows at least four spells; the chat goes back to its new place at the

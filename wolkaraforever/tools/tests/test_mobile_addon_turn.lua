@@ -1,4 +1,4 @@
--- The Interface mobile add-on's turning wheel (addons/WolkaraRoue/Turn.lua), run outside the
+-- The Mobile UI add-on's turning wheel (addons/WolkaraRoue/Turn.lua), run outside the
 -- game. The secure snippets - the only code that moves the spells in combat - are executed
 -- against stand-ins for their frames: the finger's angle they compute without a maths library
 -- is compared with the real one; a swipe that starts on a spell turns the wheel by the right
@@ -99,7 +99,7 @@ for fx = 0.02, 0.98, 0.04 do
 end
 assert(worst < 0.4, "the secure angle is off by " .. worst .. " degrees")
 
--- The layout: 12 spells round the corner, a quarter of a spell apart at "Écart" 100 %.
+-- The layout: 12 spells round the corner, a quarter of a spell apart at "Spell spacing" 100 %.
 local radius, step = Turn.Geometry(W, H, 12, 100)
 assert(band:GetAttribute("count") == 12 and math.abs(band:GetAttribute("step") - step) < 1e-9)
 assert(math.abs(2 * radius * math.sin(math.rad(step) / 2) - 64 * 1.25) < 1e-6)

@@ -145,7 +145,7 @@ size, opacity, grid, and haptic controls. Physical keyboard and controller input
 mapped in the app.
 
 What you type goes to a draft first. The keyboard's **Send** puts the line in the game's
-chat: F12, which the Interface mobile add-on binds to its chosen conversation, then the words
+chat: F12, which the Mobile UI add-on binds to its chosen conversation, then the words
 and Return (a line that starts with `/` is a command and skips F12). **Replace** instead fills
 the selected game field and does not press Return; **↵** on the accessory bar is a plain Return.
 

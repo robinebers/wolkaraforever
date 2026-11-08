@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copy the Interface mobile add-on (addons/WolkaraRoue) into the game's Interface/AddOns on the
+# Copy the Mobile UI add-on (addons/WolkaraRoue) into the game's Interface/AddOns on the
 # device, as the add-on's own commit says to install it.
 #
 # usage: wolkaraforever/tools/push_addon.sh [--dry-run]

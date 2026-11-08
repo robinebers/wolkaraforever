@@ -1,4 +1,4 @@
--- The Interface mobile add-on's save (addons/WolkaraRoue/Save.lua), run outside the game with
+-- The Mobile UI add-on's save (addons/WolkaraRoue/Save.lua), run outside the game with
 -- the few WoW functions it calls stubbed. What is asserted is when it reloads the interface -
 -- the reload is what makes the game write WolkaraRoueDB - and that it never does so while the
 -- player is fighting, choosing, setting up or still changing things.
@@ -39,7 +39,7 @@ now = 1000; ns.MarkChanged()
 assert(ns.SavePending())
 assert(not tick(1001) and not tick(1003.9) and reloads == 0)
 assert(tick(1004) and reloads == 1 and ns.db.justSaved == true and not ns.SavePending())
-assert(printed[#printed]:find("recharge"))
+assert(printed[#printed]:find("Reloading"))
 assert(not tick(1100) and reloads == 1)  -- once per change
 
 -- Every new change starts the wait again.
@@ -75,7 +75,7 @@ assert(reloads == before + 1)
 
 -- After the reload the add-on says it saved, once, and does not save again for that.
 handlers.PLAYER_LOGIN()
-assert(ns.db.justSaved == nil and printed[#printed] == "réglages enregistrés.")
+assert(ns.db.justSaved == nil and printed[#printed] == "Settings saved.")
 assert(not ns.SavePending() and not tick(5000))
 
 -- Before the settings are loaded a change is not recorded.

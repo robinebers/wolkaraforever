@@ -1,20 +1,18 @@
--- Interface mobile : le bouton d'action commun aux roues et aux boutons libres.
---
--- Un bouton sécurisé du jeu, rond, avec la vraie icône, le temps de recharge et la couleur
--- de portée. Hors combat, toucher une case vide (ou n'importe quelle case en mode
--- Personnaliser) ouvre le sélecteur ; déposer un sort dessus le range aussi.
+-- Shared secure action button for wheels and free buttons. Displays the action icon, cooldown, and
+-- range. Outside combat, tap an empty slot (or any slot in Customize mode) to open the picker, or
+-- drop a spell into it.
 
 local _, ns = ...
 
--- Les actions toutes faites du sélecteur : des lignes de macro que le jeu exécute lui-même.
+-- The picker offers preset actions using the game's own macro commands.
 ns.BUILTIN = {
-    { kind = "macrotext", id = "/targetenemy", name = "Cibler un ennemi", icon = "Interface\\Icons\\Ability_Hunter_SniperShot" },
-    { kind = "macrotext", id = "/startattack", name = "Attaque auto", icon = "Interface\\Icons\\INV_Sword_04" },
-    { kind = "macrotext", id = "/assist", name = "Assister", icon = "Interface\\Icons\\Ability_Warrior_BattleShout" },
-    { kind = "macrotext", id = "/targetfriend", name = "Cibler un allié", icon = "Interface\\Icons\\Spell_Holy_Heal" },
-    { kind = "macrotext", id = "/cleartarget", name = "Effacer la cible", icon = "Interface\\Icons\\Spell_Shadow_Teleport" },
-    { kind = "macrotext", id = "/follow", name = "Suivre", icon = "Interface\\Icons\\Ability_Rogue_Sprint" },
-    { kind = "macrotext", id = "/sit", name = "S'asseoir", icon = "Interface\\Icons\\Spell_Nature_Sleep" },
+    { kind = "macrotext", id = "/targetenemy", name = "Target enemy", icon = "Interface\\Icons\\Ability_Hunter_SniperShot" },
+    { kind = "macrotext", id = "/startattack", name = "Auto attack", icon = "Interface\\Icons\\INV_Sword_04" },
+    { kind = "macrotext", id = "/assist", name = "Assist", icon = "Interface\\Icons\\Ability_Warrior_BattleShout" },
+    { kind = "macrotext", id = "/targetfriend", name = "Target friendly", icon = "Interface\\Icons\\Spell_Holy_Heal" },
+    { kind = "macrotext", id = "/cleartarget", name = "Clear target", icon = "Interface\\Icons\\Spell_Shadow_Teleport" },
+    { kind = "macrotext", id = "/follow", name = "Follow", icon = "Interface\\Icons\\Ability_Rogue_Sprint" },
+    { kind = "macrotext", id = "/sit", name = "Sit", icon = "Interface\\Icons\\Spell_Nature_Sleep" },
 }
 
 function ns.EntryIcon(entry)
@@ -35,7 +33,7 @@ function ns.EntryName(entry)
     return entry.name or entry.id
 end
 
--- Le sort, l'objet ou la macro d'un bouton, en attributs sécurisés. Hors combat seulement.
+-- Set the secure attributes for a spell, item, or macro outside combat.
 function ns.ApplyButton(button)
     if InCombatLockdown() then return false end
     button.suppressed = nil
@@ -62,10 +60,8 @@ function ns.ApplyButton(button)
     return true
 end
 
--- Le temps qui reste avant de pouvoir relancer, écrit en grand sur le sort, et son icône en
--- gris jusque-là : le balayage seul ne se lisait pas sur un petit bouton rond, et les chiffres
--- du jeu dépendent d'une option souvent désactivée. Le recharge global (moins de 2 s, après
--- chaque sort) garde son balayage, sans chiffre ni gris.
+-- Show the remaining cooldown over a grayed-out icon so it is readable on a small round button even
+-- when the game's cooldown text is disabled. Global cooldowns under two seconds use only the sweep.
 local GLOBAL_COOLDOWN = 2
 local ticking = {}
 
@@ -164,7 +160,7 @@ function ns.RefreshButton(button)
     ns.UpdateState(button)
 end
 
--- Ranger une entrée dans un bouton : enregistre, redessine, et réapplique hors combat.
+-- Save and redraw the assigned action; apply it outside combat.
 function ns.AssignEntry(button, entry)
     button:SetEntry(entry)
     ns.MarkChanged()
@@ -175,7 +171,7 @@ end
 
 function ns.AssignFromCursor(button)
     if InCombatLockdown() then
-        ns.Print("on remplit les cases hors combat.")
+        ns.Print("Assign slots outside combat.")
         return
     end
     local entry = ns.CursorEntry()
@@ -183,16 +179,16 @@ function ns.AssignFromCursor(button)
     local previous = button:GetEntry()
     ns.AssignEntry(button, entry)
     ClearCursor()
-    -- Comme une barre d'action : ce qui était dans la case passe au curseur.
+    -- Move the previous slot contents to the cursor, like an action bar.
     if previous and previous.kind ~= "macrotext" then ns.PickupEntry(previous) end
 end
 
--- getEntry et setEntry disent où l'entrée est rangée (une roue, un bouton libre).
+-- getEntry and setEntry access the underlying wheel or free-button slot.
 function ns.CreateActionButton(name, parent, size, getEntry, setEntry)
     local button = CreateFrame("Button", name, parent, "SecureActionButtonTemplate")
     button:SetSize(size, size)
-    -- Les deux, parce que le gabarit d'action ne réagit qu'à l'un des deux selon le réglage
-    -- « lancer à l'appui » du jeu ; il choisit lui-même lequel.
+    -- Register both edges. The secure template chooses one according to the game's cast-on-key-down
+    -- setting.
     button:RegisterForClicks("AnyUp", "AnyDown")
     button.GetEntry = function() return getEntry() end
     button.SetEntry = function(_, entry) setEntry(entry) end
@@ -216,7 +212,7 @@ function ns.CreateActionButton(name, parent, size, getEntry, setEntry)
     if button.cooldown.SetUseCircularEdge then button.cooldown:SetUseCircularEdge(true) end
     if button.cooldown.SetSwipeColor then button.cooldown:SetSwipeColor(0, 0, 0, 0.75) end
     if button.cooldown.SetHideCountdownNumbers then button.cooldown:SetHideCountdownNumbers(true) end
-    -- Au-dessus du balayage : le temps qui reste.
+    -- Draw the remaining time above the cooldown sweep.
     local over = CreateFrame("Frame", nil, button)
     over:SetAllPoints()
     over:SetFrameLevel(button.cooldown:GetFrameLevel() + 2)
@@ -230,8 +226,8 @@ function ns.CreateActionButton(name, parent, size, getEntry, setEntry)
     local highlight = ns.Disc(button, "HIGHLIGHT", 1, 1, 1, 0.18, 0)
     highlight:SetBlendMode("ADD")
 
-    -- Un curseur plein, une case vide ou le mode Personnaliser : le toucher sert à ranger,
-    -- pas à lancer.
+    -- Treat a tap as assignment when the cursor holds an action, the slot is empty, or Customize
+    -- mode is active.
     button:SetScript("PreClick", function(self)
         if InCombatLockdown() or self.swiped then return end
         if ns.editing or GetCursorInfo() or not self:GetEntry() then
@@ -240,7 +236,7 @@ function ns.CreateActionButton(name, parent, size, getEntry, setEntry)
         end
     end)
     button:SetScript("PostClick", function(self, _, down)
-        -- Un glissé sur la roue l'a fait tourner : ni lancer ni sélecteur (Turn.lua).
+        -- A wheel swipe suppresses both casting and the picker (Turn.lua).
         if self.swiped and not down then self.swiped = nil; return end
         if InCombatLockdown() or down or not self.suppressed then return end
         if GetCursorInfo() then

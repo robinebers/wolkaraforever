@@ -1,4 +1,4 @@
--- The Interface mobile add-on's bags (addons/WolkaraRoue/Bags.lua), run outside the game: after
+-- The Mobile UI add-on's bags (addons/WolkaraRoue/Bags.lua), run outside the game: after
 -- the game places its bags in the bottom-right corner, those anchored to the right edge move left
 -- past the wheel; bags stacked on another bag, closed bags and bags placed elsewhere are left
 -- alone; nothing moves in combat, and the move happens when the fight ends.

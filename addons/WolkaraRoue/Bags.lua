@@ -1,16 +1,12 @@
--- Interface mobile : les sacs.
---
--- Le jeu ouvre ses sacs dans le coin bas-droit, sous le stick droit et la roue : on ne pouvait
--- plus toucher ce qu'ils contiennent. Une fois que le jeu les a placés, on décale vers la
--- gauche ceux qui partent du bord droit, d'un peu plus que la largeur de la roue. Hors combat
--- seulement : leurs cases sont protégées et le jeu ne les laisse pas bouger en combat ; un sac
--- ouvert en combat est décalé dès que le combat finit.
+-- The game anchors bags under the right stick and wheel. After layout, shift right-edge bags left by
+-- just over a wheel width so their slots stay reachable. Bag slots are protected in combat;
+-- reposition them after combat ends.
 
 local _, ns = ...
 
-local Bags = ns.Register("Sacs", {})
+local Bags = ns.Register("Bags", {})
 local pending = false
-local SHIFT = 0.36  -- de la largeur de l'écran
+local SHIFT = 0.36  -- fraction of screen width
 
 local function Containers()
     local list = {}
@@ -22,7 +18,7 @@ local function Containers()
     return list
 end
 
--- Appelé juste après que le jeu a replacé ses sacs (il repart de zéro à chaque fois).
+-- Run after each game bag layout, which resets their positions.
 function Bags.Shift()
     if InCombatLockdown() then pending = true; return end
     pending = false

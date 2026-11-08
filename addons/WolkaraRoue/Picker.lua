@@ -1,16 +1,15 @@
--- Interface mobile : le sélecteur. Toucher une case ouvre la grille de tes sorts, objets
--- utilisables, macros et actions toutes faites ; toucher une icône la range dans la case.
--- Des pages plutôt qu'un défilement, parce qu'un doigt ne fait pas défiler une liste du jeu.
+-- Tap a slot, then choose from spells, usable items, macros, and preset actions. Use pages so
+-- selection does not depend on touch scrolling in a game list.
 
 local _, ns = ...
 
 local COLUMNS, ROWS = 6, 3
 local PER_PAGE = COLUMNS * ROWS
 local CELL_W, CELL_H = 92, 100
-local TABS = { { key = "spells", label = "Sorts" }, { key = "items", label = "Objets" },
+local TABS = { { key = "spells", label = "Spells" }, { key = "items", label = "Items" },
                { key = "macros", label = "Macros" }, { key = "builtin", label = "Actions" } }
 
-local Picker = ns.Register("Sélecteur", {})
+local Picker = ns.Register("Picker", {})
 ns.Picker = Picker
 
 local BOOK = BOOKTYPE_SPELL or "spell"
@@ -20,7 +19,7 @@ local function CollectSpells()
     local function add(spellID, name, icon)
         if not spellID or not name then return end
         if seen[name] then
-            -- Les rangs d'un même sort se suivent : on garde le dernier, le plus haut.
+            -- Consecutive ranks of the same spell are ordered lowest to highest. Keep the last.
             list[seen[name]].id = spellID
             list[seen[name]].icon = icon or list[seen[name]].icon
             return
@@ -65,7 +64,7 @@ local function CollectItems()
     local function add(id)
         if not id or seen[id] or not ns.ItemSpell(id) then return end
         seen[id] = true
-        list[#list + 1] = { kind = "item", id = id, name = ns.ItemName(id) or ("Objet " .. id), icon = ns.ItemIcon(id) }
+        list[#list + 1] = { kind = "item", id = id, name = ns.ItemName(id) or ("Item " .. id), icon = ns.ItemIcon(id) }
     end
     local slots = (C_Container and C_Container.GetContainerNumSlots) or GetContainerNumSlots
     local itemAt = (C_Container and C_Container.GetContainerItemID) or GetContainerItemID
@@ -74,7 +73,7 @@ local function CollectItems()
             for slot = 1, (slots(bag) or 0) do add(itemAt(bag, slot)) end
         end
     end
-    -- Les bijoux portés, qui ont souvent un effet à utiliser.
+    -- Equipped trinkets often have usable effects.
     for _, slot in ipairs({ 13, 14 }) do add(GetInventoryItemID("player", slot)) end
     return list
 end
@@ -102,9 +101,9 @@ end
 
 local COLLECT = { spells = CollectSpells, items = CollectItems, macros = CollectMacros, builtin = CollectBuiltin }
 local EMPTY = {
-    spells = "Aucun sort actif dans le grimoire.",
-    items = "Aucun objet utilisable dans tes sacs.",
-    macros = "Aucune macro. Crée-en avec /macro.",
+    spells = "No active spells in your spellbook.",
+    items = "No usable items in your bags.",
+    macros = "No macros. Create one with /macro.",
     builtin = "",
 }
 
@@ -140,7 +139,7 @@ local function SelectTab(key)
     page = 1
     local ok, result = pcall(COLLECT[key])
     list = ok and result or {}
-    if not ok then ns.Print("|cffff5555erreur|r en listant : " .. tostring(result)) end
+    if not ok then ns.Print("|cffff5555error|r building the list: " .. tostring(result)) end
     Show()
 end
 
@@ -166,7 +165,7 @@ local function Build()
     frame:Hide()
     ns.Box(frame, "BACKGROUND", 0.04, 0.05, 0.08, 0.96)
 
-    title = ns.Label(frame, "GameFontNormalLarge", "Choisir pour cette case")
+    title = ns.Label(frame, "GameFontNormalLarge", "Choose a slot action")
     title:SetPoint("TOP", 0, -12)
 
     tabButtons = {}
@@ -200,7 +199,7 @@ local function Build()
         highlight:SetBlendMode("ADD")
         cell:SetScript("OnClick", function(self)
             if not self.entry or not target then return end
-            if InCombatLockdown() then ns.Print("on remplit les cases hors combat."); return end
+            if InCombatLockdown() then ns.Print("Assign slots outside combat."); return end
             local entry = self.entry
             ns.AssignEntry(target, { kind = entry.kind, id = entry.id, name = entry.kind == "macrotext" and entry.name or nil,
                 icon = entry.kind == "macrotext" and entry.icon or nil })
@@ -223,9 +222,9 @@ local function Build()
     pageLabel = ns.Label(frame, "GameFontHighlight")
     pageLabel:SetPoint("LEFT", nextPage, "RIGHT", 12, 0)
 
-    local close = Button(frame, "Fermer", 120, 38, function() Picker:Close() end)
+    local close = Button(frame, "Close", 120, 38, function() Picker:Close() end)
     close:SetPoint("BOTTOMRIGHT", -20, 14)
-    local clear = Button(frame, "Vider la case", 170, 38, function()
+    local clear = Button(frame, "Clear slot", 170, 38, function()
         if target and not InCombatLockdown() then ns.AssignEntry(target, nil) end
         Picker:Close()
     end)
@@ -237,7 +236,7 @@ function Picker:Init() Build() end
 function Picker:Open(button)
     if InCombatLockdown() or not frame then return end
     target = button
-    title:SetText(button:GetEntry() and ("Remplacer : " .. (ns.EntryName(button:GetEntry()) or "")) or "Choisir pour cette case")
+    title:SetText(button:GetEntry() and ("Replace: " .. (ns.EntryName(button:GetEntry()) or "")) or "Choose a slot action")
     frame:Show()
     SelectTab(tab)
 end

@@ -1,5 +1,5 @@
 #!/bin/bash
-# The Interface mobile add-on (addons/WolkaraRoue), checked on the Mac: every Lua file compiles
+# The Mobile UI add-on (addons/WolkaraRoue), checked on the Mac: every Lua file compiles
 # as the game's Lua 5.1 would read it, every file the .toc lists exists, and the save module
 # decides when to reload the interface as tests/test_mobile_addon_save.lua expects; the turning
 # wheels, the cooldown text, the bag placement, the game's windows, the minimap, the chat and the

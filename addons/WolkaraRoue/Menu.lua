@@ -1,7 +1,5 @@
--- Interface mobile : le menu en grandes tuiles, façon tablette. Tout ce qu'on ouvre moins
--- souvent que les sacs ou la carte : personnage, talents, quêtes, social, guilde, macros,
--- options du jeu, réglages de l'interface mobile, recharger, déconnexion, quitter.
--- Il s'ouvre et se ferme en combat aussi (cadre sécurisé) ; toucher à côté le referme.
+-- Tile menu for character, talents, quests, social, guild, macros, game options, mobile settings,
+-- reload, logout, and quit. Its secure frame opens and closes during combat. Tap outside to dismiss.
 
 local _, ns = ...
 
@@ -12,31 +10,31 @@ local Menu = ns.Register("Menu", {})
 ns.Menu = Menu
 
 local TILES = {
-    { label = "Personnage", icon = "Interface\\Icons\\INV_Shirt_White_01", click = "CharacterMicroButton",
+    { label = "Character", icon = "Interface\\Icons\\INV_Shirt_White_01", click = "CharacterMicroButton",
       run = function() if ToggleCharacter then ToggleCharacter("PaperDollFrame") end end },
-    { label = "Sacs", icon = "Interface\\Icons\\INV_Misc_Bag_08",
+    { label = "Bags", icon = "Interface\\Icons\\INV_Misc_Bag_08",
       run = function() if ToggleAllBags then ToggleAllBags() end end },
-    { label = "Sorts", icon = "Interface\\Icons\\INV_Misc_Book_09", click = "SpellbookMicroButton",
+    { label = "Spells", icon = "Interface\\Icons\\INV_Misc_Book_09", click = "SpellbookMicroButton",
       run = function() if ToggleSpellBook then ToggleSpellBook(BOOKTYPE_SPELL or "spell") end end },
     { label = "Talents", icon = "Interface\\Icons\\Ability_Marksmanship", click = "TalentMicroButton",
       run = function() if ToggleTalentFrame then ToggleTalentFrame() end end },
-    { label = "Quêtes", icon = "Interface\\Icons\\INV_Misc_Note_01", click = "QuestLogMicroButton",
+    { label = "Quests", icon = "Interface\\Icons\\INV_Misc_Note_01", click = "QuestLogMicroButton",
       run = function() if ToggleQuestLog then ToggleQuestLog() end end },
-    { label = "Carte", icon = "Interface\\Icons\\INV_Misc_Map_01",
+    { label = "Map", icon = "Interface\\Icons\\INV_Misc_Map_01",
       run = function() if ToggleWorldMap then ToggleWorldMap() end end },
     { label = "Social", icon = "Interface\\Icons\\INV_Letter_02", click = "SocialsMicroButton",
       run = function() if ToggleFriendsFrame then ToggleFriendsFrame() end end },
-    { label = "Guilde", icon = "Interface\\Icons\\INV_Shirt_GuildTabard_01", click = "GuildMicroButton",
+    { label = "Guild", icon = "Interface\\Icons\\INV_Shirt_GuildTabard_01", click = "GuildMicroButton",
       run = function() if ToggleGuildFrame then ToggleGuildFrame() end end },
     { label = "Macros", icon = "Interface\\Icons\\INV_Scroll_03", macro = "/macro" },
-    { label = "Menu du jeu", icon = "Interface\\Icons\\INV_Misc_Gear_01", run = function()
+    { label = "Game menu", icon = "Interface\\Icons\\INV_Misc_Gear_01", run = function()
         if GameMenuFrame then
             if GameMenuFrame:IsShown() then HideUIPanel(GameMenuFrame) else ShowUIPanel(GameMenuFrame) end
         elseif ToggleGameMenu then
             ToggleGameMenu()
         end
     end },
-    { label = "Réglages du jeu", icon = "Interface\\Icons\\INV_Misc_Wrench_01", run = function()
+    { label = "Game settings", icon = "Interface\\Icons\\INV_Misc_Wrench_01", run = function()
         if SettingsPanel and SettingsPanel.Open then
             SettingsPanel:Open()
         elseif SettingsPanel then
@@ -47,11 +45,11 @@ local TILES = {
             ShowUIPanel(InterfaceOptionsFrame)
         end
     end },
-    { label = "Interface mobile", icon = "Interface\\Icons\\Trade_Engineering",
+    { label = "Mobile UI", icon = "Interface\\Icons\\Trade_Engineering",
       run = function() if ns.Settings then ns.Settings:Toggle() end end },
-    { label = "Recharger", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", macro = "/reload" },
-    { label = "Déconnexion", icon = "Interface\\Icons\\INV_Misc_Rune_01", macro = "/logout" },
-    { label = "Quitter", icon = "Interface\\Icons\\Ability_Rogue_FeignDeath", macro = "/quit" },
+    { label = "Reload UI", icon = "Interface\\Icons\\INV_Misc_PocketWatch_01", macro = "/reload" },
+    { label = "Log out", icon = "Interface\\Icons\\INV_Misc_Rune_01", macro = "/logout" },
+    { label = "Quit", icon = "Interface\\Icons\\Ability_Rogue_FeignDeath", macro = "/quit" },
 }
 
 local frame
@@ -106,7 +104,7 @@ function Menu:Init()
     frame:Hide()
     self.frame = frame
 
-    -- Le fond : assombrit le jeu, et un toucher dessus referme le menu.
+    -- Dim the game behind the menu and close on a background tap.
     local dim = CreateFrame("Button", "WolkaraMobileMenuBackdrop", frame, "SecureHandlerClickTemplate")
     dim:SetAllPoints(frame)
     dim:RegisterForClicks("AnyUp")
@@ -125,7 +123,7 @@ function Menu:Init()
     title:SetPoint("TOP", 0, -18)
     frame.card = card
 
-    -- Les tuiles sont sur la carte, au-dessus du fond.
+    -- Place the tiles above the backdrop.
     local parent = frame
     frame = card
     for index, info in ipairs(TILES) do Tile(info, index) end
@@ -138,6 +136,6 @@ function Menu:Init()
     close:SetFrameRef("menu", frame)
     close:SetAttribute("_onclick", [=[ self:GetFrameRef("menu"):Hide() ]=])
     ns.Box(close, "BACKGROUND", 0.18, 0.18, 0.22, 0.95)
-    local closeText = ns.Label(close, "GameFontHighlightLarge", "Fermer")
+    local closeText = ns.Label(close, "GameFontHighlightLarge", "Close")
     closeText:SetPoint("CENTER")
 end

@@ -27,7 +27,7 @@ with the same signing team, bundle ID, and Keychain group.
    launcher again. Run `wolkaraforever/tools/push_addon.sh` to copy the mobile interface
    into the finished installation. The script reads back the add-on files to verify the copy.
 3. Reopen WolkaraForever and select **Play**. At character selection, check **AddOns** for
-   **WolkaraRoue** (Interface mobile).
+   **WolkaraRoue** (Mobile UI).
 
 The update reuses the installed game files. Blizzard publishing a newer build or selecting
 another game language can still require additional data.
@@ -40,7 +40,7 @@ Wi-Fi (2026-11-05). On mobile data the developer service needs the app's documen
 (turn mobile data off while it waits for the local connection, back on once the game starts).
 For a phone it brings:
 
-- **Interface mobile**, a touch add-on in [addons/WolkaraRoue](addons/WolkaraRoue): two spell
+- **Mobile UI**, a touch add-on in [addons/WolkaraRoue](addons/WolkaraRoue): two spell
   wheels, one by each stick (the left one mirrors the right), that you turn by dragging a spell
   (a tap casts), with adjustable spacing; shortcuts and a tile menu, health bars with your
   portrait, a quest card, and a chat at the bottom between the wheels that switches between the

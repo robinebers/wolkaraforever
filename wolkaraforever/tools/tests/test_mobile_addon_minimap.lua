@@ -1,4 +1,4 @@
--- The Interface mobile add-on's minimap (addons/WolkaraRoue/Minimap.lua), run outside the game:
+-- The Mobile UI add-on's minimap (addons/WolkaraRoue/Minimap.lua), run outside the game:
 -- the minimap and everything round it take the size chosen in the Mobile panel (60 % by
 -- default), are put away into an invisible frame when it is switched off and come back to their
 -- own parent when it is switched on again; the game's Edit Mode setting its own size is undone.

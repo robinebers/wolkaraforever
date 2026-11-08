@@ -1,29 +1,21 @@
--- Interface mobile : les fenêtres du jeu.
---
--- Agrandies avec toute l'interface (170 %), les fenêtres du jeu débordaient : la croix de la
--- carte du monde sortait de l'écran, et le bas des fenêtres de gauche (quête, PNJ, marchand,
--- journal) passait sous le stick gauche, qui prenait le toucher : « Terminer la quête » ne
--- répondait pas. À chaque ouverture, la fenêtre est réduite juste ce qu'il faut, jamais au-delà
--- de sa taille d'origine, et elle reste dans la place libre :
---   * entre les deux sticks, sur toute la hauteur, si elle y tient ;
---   * sinon au-dessus des sticks, sur toute la largeur, si elle y est plus grande ;
---   * la carte du monde prend tout l'écran : on la regarde, et sa croix reste en haut à droite.
--- Le jeu la place comme d'habitude ; il la décale seulement pour qu'elle reste dans cette place
--- (SetClampedToScreen et ses marges). En combat, le jeu ne laisse pas toucher à ses fenêtres
--- protégées : celles-là sont ajustées à la fin du combat.
+-- At the default 170% scale, game windows could extend beyond the screen or put quest buttons under
+-- the left stick. Shrink windows only enough to fit, up to their original scale. Use the full-height
+-- space between sticks when possible, or the wider space above them. The world map uses the full
+-- screen with its close button in reach. Keep the game's placement and adjust its clamping margins.
+-- Defer protected window changes until combat ends.
 
 local _, ns = ...
 
-local Windows = ns.Register("Fenêtres du jeu", {})
+local Windows = ns.Register("Game windows", {})
 ns.Windows = Windows
 
 local MARGIN = 10
--- Autour du centre de chaque stick (ns.STICK_X, ns.STICK_Y) : l'anneau dessiné par l'app et une
--- marge, en hauteur d'écran.
+-- Reserve room around each stick center for the app's ring and a margin, expressed as fractions of
+-- screen height.
 local STICK_ZONE = 0.10
 local WHOLE_SCREEN = { WorldMapFrame = true }
--- Les fenêtres connues ; les autres sont prises quand le jeu les ouvre (ShowUIPanel). Selon la
--- version du jeu, toutes n'existent pas, et certaines n'arrivent qu'avec leur module.
+-- Handle known windows and other panels as ShowUIPanel opens them. Some frames vary by client or
+-- load with their module.
 local NAMES = {
     "WorldMapFrame", "QuestFrame", "GossipFrame", "QuestLogFrame", "MerchantFrame", "LootFrame",
     "CharacterFrame", "SpellBookFrame", "PlayerSpellsFrame", "TaxiFrame", "FriendsFrame", "MailFrame",
@@ -37,9 +29,8 @@ local NAMES = {
 local natural, pending, watched = {}, {}, {}
 local busy = false
 
--- La taille et la place d'une fenêtre, en unités de l'interface : l'échelle à lui donner (par
--- rapport à l'interface), puis ce qu'elle doit laisser libre sur chaque côté et en bas.
--- `largest` est son échelle d'origine : on ne l'agrandit jamais.
+-- Calculate scale and the required side and bottom clearances in UI units. Cap scale at the original
+-- value, largest.
 function Windows.Placement(W, H, width, height, largest, whole)
     if whole then
         return math.min(largest, (W - 2 * MARGIN) / width, (H - 2 * MARGIN) / height), MARGIN, MARGIN
@@ -52,8 +43,7 @@ function Windows.Placement(W, H, width, height, largest, whole)
     return above, MARGIN, low
 end
 
--- Ce que la croix de fermeture dépasse du cadre, à droite et en haut, en unités de la fenêtre :
--- elle est parfois posée à cheval sur le bord, et c'est elle qu'il faut garder à l'écran.
+-- Allow for the close button extending above and right of its frame so the button stays onscreen.
 local function Overhang(frame)
     local close = frame.CloseButton or (type(frame.BorderFrame) == "table" and frame.BorderFrame.CloseButton)
         or _G[(frame:GetName() or "") .. "CloseButton"]
@@ -67,7 +57,7 @@ end
 function Windows.Fit(frame)
     if busy or type(frame) ~= "table" or not frame.IsShown or not frame:IsShown() then return end
     if InCombatLockdown() and frame:IsProtected() then pending[frame] = true; return end
-    -- Une fenêtre dont la taille vient de ses ancres suivrait l'échelle : on n'y touche pas.
+    -- Leave anchor-sized frames alone because their dimensions would change with scale.
     if frame:GetNumPoints() > 1 then return end
     local width, height = frame:GetWidth(), frame:GetHeight()
     if not width or not height or width < 1 or height < 1 then return end
@@ -81,12 +71,12 @@ function Windows.Fit(frame)
     busy = true
     if math.abs(frame:GetScale() - scale / parentScale) > 0.001 then frame:SetScale(scale / parentScale) end
     frame:SetClampedToScreen(true)
-    -- Les marges se comptent dans les unités de la fenêtre : une unité y vaut `scale` de l'interface.
+    -- Clamping margins use frame units, each worth scale UI units.
     frame:SetClampRectInsets(-side / scale, side / scale + right, MARGIN / scale + top, -low / scale)
     busy = false
 end
 
--- Une fenêtre qui se dimensionne en s'ouvrant (la carte) est reprise une image plus tard.
+-- Revisit panels such as the map one frame later, once their opening layout has resolved.
 local function Again(frame)
     if C_Timer and C_Timer.After then C_Timer.After(0, function() Windows.Fit(frame) end) end
 end
@@ -111,7 +101,7 @@ function Windows:Init()
     end
 end
 
--- La taille de l'interface a changé : les fenêtres ouvertes se réajustent.
+-- Refit open windows when UI scale changes.
 function Windows:Layout()
     for frame in pairs(watched) do
         if frame:IsShown() then Windows.Fit(frame) end

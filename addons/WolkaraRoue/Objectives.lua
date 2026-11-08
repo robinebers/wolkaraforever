@@ -1,11 +1,10 @@
--- Interface mobile : la carte des quêtes. Elle remplace le suivi des objectifs sous la
--- mini-carte, illisible sur tablette : en haut à gauche sous ta barre, en gros texte, les
--- quêtes suivies d'abord, avec leurs objectifs (en vert quand c'est fait) et « À rendre »
--- quand la quête est finie. Toucher l'en-tête la replie ; toucher une quête ouvre le journal.
+-- Quest card below the player bar replaces the small tracker under the minimap. Show tracked quests
+-- first, completed objectives in green, and a turn-in marker on finished quests. Tap the header to
+-- collapse or a quest to open the log.
 
 local _, ns = ...
 
-local Objectives = ns.Register("Quêtes", {})
+local Objectives = ns.Register("Quests", {})
 local WIDTH = 320
 local MAX_QUESTS = 5
 local MAX_LINES = 4
@@ -47,7 +46,7 @@ local function Collect()
             end
         end
     end
-    -- Les quêtes suivies d'abord, puis dans l'ordre du journal.
+    -- Sort tracked quests first and preserve log order within each group.
     table.sort(list, function(a, b)
         if a.watched ~= b.watched then return a.watched end
         return a.index < b.index
@@ -67,7 +66,7 @@ local function Render()
     if not card or not ns.db then return end
     local quests = Collect()
     local settings = ns.db.quests
-    header.text:SetText(("Quêtes (%d)  %s"):format(#quests, settings.collapsed and "+" or "-"))
+    header.text:SetText(("Quests (%d)  %s"):format(#quests, settings.collapsed and "+" or "-"))
     local y = 0
     for i = 1, MAX_QUESTS do
         local block, quest = blocks[i], quests[i]
@@ -79,7 +78,7 @@ local function Render()
             for j = 1, MAX_LINES do
                 local line, objective = block.lines[j], quest.objectives[j]
                 if quest.complete and j == 1 then
-                    line:SetText("À rendre")
+                    line:SetText("Ready to turn in")
                     line:SetTextColor(0.3, 1, 0.3)
                     line:Show()
                 elseif objective and not quest.complete then
@@ -150,7 +149,7 @@ function Objectives:Init()
         end
         local highlight = ns.Box(block, "HIGHLIGHT", 1, 1, 1, 0.08)
         highlight:SetBlendMode("ADD")
-        block:SetScript("OnClick", function() if not ns.editing then ns.Guard("journal", OpenLog) end end)
+        block:SetScript("OnClick", function() if not ns.editing then ns.Guard("quest log", OpenLog) end end)
         ns.DragHandle(block, card)
         block:Hide()
         blocks[i] = block

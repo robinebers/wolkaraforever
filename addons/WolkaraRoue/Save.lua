@@ -1,20 +1,13 @@
--- Interface mobile : l'enregistrement.
---
--- Le jeu n'écrit WolkaraRoueDB sur le disque qu'en rechargeant l'interface ou en quittant
--- proprement. Sur le téléphone, une session finit souvent autrement : l'app balayée, iOS qui
--- la ferme en arrière-plan, la maison de la barre d'outils. Rien n'était alors écrit : le
--- 2026-11-05, une session entière n'a laissé aucune sauvegarde, et les sorts rangés pendant
--- celle-ci manquaient au lancement suivant.
---
--- Après un changement (un sort rangé ou retiré, un élément déplacé, un réglage), l'interface
--- se recharge donc d'elle-même dès qu'on a fini : hors combat, sans sélecteur, réglages, menu
--- ni mode Personnaliser ouverts, et rien touché depuis quelques secondes. C'est ce
--- rechargement qui écrit le fichier.
+-- WoW writes WolkaraRoueDB when the UI reloads or the game quits cleanly. Swiping the phone app
+-- away, background termination, or leaving through the toolbar can skip that save. On 2026-11-05 an
+-- entire session's assignments were lost this way. After an edit, wait for a few quiet seconds
+-- outside combat, with the picker, settings, menu, and Customize mode closed, before reloading the
+-- UI to save.
 
 local _, ns = ...
 
-local AFTER_CHANGE = 4  -- secondes sans nouveau changement
-local AFTER_IDLE = 1.5  -- secondes sans rien d'ouvert
+local AFTER_CHANGE = 4  -- seconds since the last change
+local AFTER_IDLE = 1.5  -- seconds with all panels closed
 local changedAt, idleSince
 
 function ns.MarkChanged()
@@ -31,7 +24,7 @@ local function Busy()
     return false
 end
 
--- Une vérification : vrai quand elle a lancé l'enregistrement.
+-- Return true when this tick triggered a save.
 function ns.SaveTick(now)
     if not changedAt or not ns.db then return false end
     if Busy() then idleSince = nil; return false end
@@ -39,7 +32,7 @@ function ns.SaveTick(now)
     if now - changedAt < AFTER_CHANGE or now - idleSince < AFTER_IDLE then return false end
     changedAt, idleSince = nil, nil
     ns.db.justSaved = true
-    ns.Print("enregistrement de tes réglages : l'interface se recharge.")
+    ns.Print("Reloading the UI to save your settings.")
     ReloadUI()
     return true
 end
@@ -56,6 +49,6 @@ end)
 ns.On("PLAYER_LOGIN", function()
     if ns.db and ns.db.justSaved then
         ns.db.justSaved = nil
-        ns.Print("réglages enregistrés.")
+        ns.Print("Settings saved.")
     end
 end)

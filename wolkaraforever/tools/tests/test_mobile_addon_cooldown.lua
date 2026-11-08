@@ -1,4 +1,4 @@
--- The Interface mobile add-on's cooldowns (addons/WolkaraRoue/Actions.lua), run outside the
+-- The Mobile UI add-on's cooldowns (addons/WolkaraRoue/Actions.lua), run outside the
 -- game: a spell on cooldown shows the time left and a grey icon until it is ready, the global
 -- cooldown keeps only its sweep, and the text goes when the cooldown ends or is reset.
 --

@@ -1,4 +1,4 @@
--- The Interface mobile add-on's chat (addons/WolkaraRoue/Chat.lua), run outside the game with
+-- The Mobile UI add-on's chat (addons/WolkaraRoue/Chat.lua), run outside the game with
 -- stand-ins for its frames. Its layout is measured on two screen widths: no tab runs into the
 -- close button, no conversation chip runs off the panel (the 0.5 panel had both), the panel
 -- stays between the sticks and the strip sits at the bottom, clear of the app's toolbar. The
@@ -118,7 +118,7 @@ local function Check(label)
     for _, button in ipairs(Buttons(panel, 36)) do
         local text = button.text.text
         if text == "X" then close = button
-        elseif text == "Discussion" or text == "Privé" or text == "Système" or text == "Tout" then tabs[#tabs + 1] = button
+        elseif text == "Chat" or text == "Whispers" or text == "System" or text == "All" then tabs[#tabs + 1] = button
         else chips[#chips + 1] = button end
     end
     assert(close and #tabs == 4 and #chips == 5, label .. ": the panel's buttons")
@@ -138,20 +138,20 @@ local function Check(label)
     assert(p[1] == "BOTTOM" and p[3] == "BOTTOM" and p[5] >= H * 0.10 and ticker.width <= W * 0.4, label .. ": the strip")
     local quick, hide = {}, nil
     for _, button in ipairs(Buttons(ticker, 28)) do
-        if button.text.text == "Masquer" then hide = button else quick[#quick + 1] = button end
+        if button.text.text == "Hide" then hide = button else quick[#quick + 1] = button end
     end
-    assert(#quick == 2 and hide, label .. ": the quick tabs and Masquer")
+    assert(#quick == 2 and hide, label .. ": the quick tabs and Hide")
     local quickEnd = 0
     for _, button in ipairs(quick) do
         local x, width = Edge(button)
         assert(x >= 0 and x + width <= ticker.width and button.points[1][5] > 0, label .. ": a quick tab is off the strip")
         quickEnd = math.max(quickEnd, x + width)
     end
-    -- Masquer, on the same row at the right, clear of the quick tabs; the unread count above it.
+    -- Hide, on the same row at the right, clear of the quick tabs; the unread count above it.
     local h = hide.points[1]
-    assert(h[1] == "TOPRIGHT" and h[3] == "TOPRIGHT" and h[4] == 0 and h[5] == quick[1].points[1][5], label .. ": Masquer's row")
-    assert(ticker.width - hide.width >= quickEnd + 1, label .. ": Masquer runs into the quick tabs")
-    assert(hide.text.width <= hide.width, label .. ": Masquer's text is wider than its button")
+    assert(h[1] == "TOPRIGHT" and h[3] == "TOPRIGHT" and h[4] == 0 and h[5] == quick[1].points[1][5], label .. ": Hide's row")
+    assert(ticker.width - hide.width >= quickEnd + 1, label .. ": Hide runs into the quick tabs")
+    assert(hide.text.width <= hide.width, label .. ": Hide's text is wider than its button")
 end
 Check("wide screen")
 W = 760
@@ -178,32 +178,32 @@ local function Tap(label, parent)
     end
     error("no button " .. label)
 end
-handlers.CHAT_MSG_SAY("bonjour", "Ana-Realm")
-handlers.CHAT_MSG_LOOT("Vous recevez le butin : [Étoffe de lin].")
-assert(#ticker.lines == 1 and ticker.lines[1]:find("bonjour"), "the talk strip shows the loot")
-Tap("Système", ticker)
-assert(ns.db.chat.tab == "system" and #ticker.lines == 1 and ticker.lines[1]:find("butin"), "the system strip")
-Tap("Discussion", ticker)
-assert(#ticker.lines == 1 and ticker.lines[1]:find("bonjour"))
+handlers.CHAT_MSG_SAY("hello", "Ana-Realm")
+handlers.CHAT_MSG_LOOT("You receive loot: [Linen Cloth].")
+assert(#ticker.lines == 1 and ticker.lines[1]:find("hello"), "the talk strip shows the loot")
+Tap("System", ticker)
+assert(ns.db.chat.tab == "system" and #ticker.lines == 1 and ticker.lines[1]:find("loot"), "the system strip")
+Tap("Chat", ticker)
+assert(#ticker.lines == 1 and ticker.lines[1]:find("hello"))
 -- The add-on's own messages show on both.
-ns.ChatAdd("Mobile : réglages enregistrés.")
-assert(ticker.lines[#ticker.lines]:find("réglages"))
+ns.ChatAdd("Mobile : Settings saved.")
+assert(ticker.lines[#ticker.lines]:find("Settings"))
 
 -- A whisper: counted, and the Reply chip names who to answer.
-handlers.CHAT_MSG_WHISPER("tu viens ?", "Bob-Realm")
+handlers.CHAT_MSG_WHISPER("are you coming?", "Bob-Realm")
 local badgeText
 for _, frame in ipairs(frames) do
-    if frame.ftype == "FontString" and frame.parent == ticker and rawget(frame, "text") and frame.text:find("privé") then badgeText = frame.text end
+    if frame.ftype == "FontString" and frame.parent == ticker and rawget(frame, "text") and frame.text:find("whisper") then badgeText = frame.text end
 end
-assert(badgeText == "1 nouveau privé", tostring(badgeText))
+assert(badgeText == "1 new whisper", tostring(badgeText))
 local reply
-for _, button in ipairs(Buttons(panel, 36)) do if button.text.text == "À Bob" then reply = button end end
+for _, button in ipairs(Buttons(panel, 36)) do if button.text.text == "To Bob" then reply = button end end
 assert(reply, "the Reply chip does not name Bob")
 
 -- F12, sent by the app before a line: the input opens on the chosen conversation.
 WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/s ", "Say is not the default")
-Tap("Groupe", panel)
+Tap("Group", panel)
 WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/p ")
 reply.scripts.OnClick(reply)
@@ -216,13 +216,13 @@ assert(panel.shown and not ticker.shown and #WolkaraMobileChatList.lines >= 2)
 Tap("X", panel)
 assert(not panel.shown and ticker.shown)
 
--- Masquer: the strip goes, and a chat button waits just left of the app's keyboard - the folded
+-- Hide: the strip goes, and a chat button waits just left of the app's keyboard - the folded
 -- toolbar is 96 x 34 pt, centred, 42 pt up a 669 pt screen, its keyboard on the left - level
 -- with it. It counts what the players say meanwhile, not the loot.
 local mini = Chat.mini
 assert(mini and not mini.shown, "the chat button shows while the chat is on screen")
-Tap("Masquer", ticker)
-assert(ns.db.chat.hidden == true and not ticker.shown and not panel.shown and mini.shown, "Masquer did not hide the chat")
+Tap("Hide", ticker)
+assert(ns.db.chat.hidden == true and not ticker.shown and not panel.shown and mini.shown, "Hide did not hide the chat")
 local spot = mini.points[1]
 assert(spot[1] == "BOTTOMRIGHT" and spot[2] == UIParent and spot[3] == "BOTTOM", "the chat button's anchor")
 local keyboardLeft = W / 2 - 48 / 669 * H
@@ -233,9 +233,9 @@ local count
 for _, frame in ipairs(frames) do
     if frame.ftype == "FontString" and frame.parent == mini and frame ~= mini.text then count = frame end
 end
-handlers.CHAT_MSG_SAY("encore là ?", "Ana-Realm")
-handlers.CHAT_MSG_LOOT("Vous recevez le butin : [Étoffe de laine].")
-handlers.CHAT_MSG_WHISPER("ohé", "Bob-Realm")
+handlers.CHAT_MSG_SAY("still there?", "Ana-Realm")
+handlers.CHAT_MSG_LOOT("You receive loot: [Wool Cloth].")
+handlers.CHAT_MSG_WHISPER("hello", "Bob-Realm")
 assert(count and count.text == "2", "the chat button counts " .. tostring(count and count.text))
 -- It stays hidden through a layout; Customise shows the strip to move it, then hides it again.
 Chat:Layout()
@@ -249,6 +249,6 @@ WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/w Bob-Realm ")
 mini.scripts.OnClick(mini)
 assert(ns.db.chat.hidden == false and ticker.shown and not mini.shown and count.text == "")
-assert(ticker.lines[#ticker.lines]:find("ohé"), "the strip missed what was said while hidden")
+assert(ticker.lines[#ticker.lines]:find("hello"), "the strip missed what was said while hidden")
 
-print("mobile add-on chat: no tab or chip overflows on two widths, panel between the sticks, strip at the bottom, talk/system one touch apart, whisper counted and answered, F12 on the chosen conversation, input hidden until typed in, Masquer leaves a counting button left of the keyboard: PASS")
+print("mobile add-on chat: no tab or chip overflows on two widths, panel between the sticks, strip at the bottom, talk/system one touch apart, whisper counted and answered, F12 on the chosen conversation, input hidden until typed in, Hide leaves a counting button left of the keyboard: PASS")
