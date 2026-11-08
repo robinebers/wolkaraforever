@@ -23,7 +23,7 @@ If a connection drops or times out, the launcher retries the affected request af
 and game language, the updater reuses verified data saved on the device. The total shown
 under **Downloading new data** is what remains for the current attempt.
 
-During **Downloading new data**, the byte counts are followed by the recent verified download speed in MB/s, averaged over roughly 30 seconds.
+During **Downloading new data**, the byte counts are followed by the recent verified download speed in MB/s, averaged over roughly 30 seconds, and an estimated time remaining at that speed.
 
 The first check of an imported installation still reads its game data. Later
 updates reuse checks for unchanged files, and long checks save their progress
