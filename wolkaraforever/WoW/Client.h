@@ -2,10 +2,18 @@
 #import "Manifest.h"
 
 NS_ASSUME_NONNULL_BEGIN
+typedef struct {
+    NSUInteger requests, backoffs;
+    uint64_t receivedBytes;
+    NSTimeInterval requestSeconds, backoffSeconds;
+} TKWoWTransferTiming;
+
 // Synchronous, bounded requests: call on a worker queue, never UIKit's main thread.
 // A client performs one operation at a time. cancel is safe from another thread.
 @interface TKWoWClient : NSObject
 - (void)cancel;
+// Completed attempts and retry waits since the last sample, summed across workers.
+- (TKWoWTransferTiming)takeTransferTiming;
 @property(nonatomic, readonly) BOOL cancelled;
 @property(nonatomic, copy, nullable) void (^progress)(NSString *phase, uint64_t done, uint64_t total);
 - (nullable NSData *)configuration:(NSString *)key cdn:(NSString *)cdn error:(NSError **)error;

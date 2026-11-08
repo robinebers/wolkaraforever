@@ -639,6 +639,7 @@ static double DownloadMBPerSecond(DownloadWindow *window, double now, uint64_t b
                 [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"World of Warcraft"];
             TKWoWUpdater *updater=[[TKWoWUpdater alloc] initWithClient:client];
             updater.fullVerification=repair;
+            updater.timingLog=^(NSString *summary) { WKLog("wow", @"download timing: %@",summary); };
             if([updater updatePlan:plan root:root progress:progress error:&error]) {
                 [self->_library discover];installation=TKWoWInspectInstallation(self->_library,product,plan);error=nil;
                 // Editions without a bundled compatibility profile still need a

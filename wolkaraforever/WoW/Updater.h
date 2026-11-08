@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TKWoWUpdater : NSObject
 - (instancetype)initWithClient:(TKWoWClient *)client;
 @property(nonatomic) BOOL fullVerification;
+@property(nonatomic, copy, nullable) void (^timingLog)(NSString *summary);
 @property(nonatomic, readonly) uint64_t verificationBytesRead;
 @property(nonatomic, readonly) uint64_t verificationBytesReused;
 - (BOOL)updatePlan:(NSDictionary *)plan root:(NSString *)root

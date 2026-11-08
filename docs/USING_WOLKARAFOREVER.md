@@ -174,6 +174,13 @@ Open **Settings → Technical details** for the app's current state and an exact
 message. Include that message and a redacted log in a support report. Do not share account
 credentials, API keys, signing data, pairing material, or device identifiers.
 
+During bulk download, `wolkaraforever/tools/pilot.sh log 12 'download timing:'` shows one
+summary per 64 MiB checkpoint and at the end of a partial window. Compare saved bytes
+with wall seconds. CDN request time and retry wait time sum completed work across up to
+four parallel requests and can exceed wall time. Received bytes include partial attempts.
+Write time covers the local payload writes; checkpoint time covers syncing and rebuilding
+the index during the transfer.
+
 Do not delete the app as a first repair step: it removes downloaded game data and enrollment
 state. If a download or startup fails, reopen the app, preserve its data, and use the
 Technical details message to identify the next step.

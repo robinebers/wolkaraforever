@@ -141,7 +141,10 @@ int main(void){@autoreleasepool{
     TKWoWCASCStore *source=[[TKWoWCASCStore alloc] initWithDirectory:[root stringByAppendingPathComponent:@"Data/data"] error:&error];assert(source);
     assert([source addData:present key:TKWoWMD5(present) error:&error]);assert([source checkpoint:&error]);source=nil;
     __block BOOL paused=NO, savedDuringScan=NO;
-    BOOL result=[[[TKCheckpointUpdater alloc] initWithClient:client] updatePlan:plan root:root progress:^(NSString *phase,uint64_t done,uint64_t total){
+    TKCheckpointUpdater *updater=[[TKCheckpointUpdater alloc] initWithClient:client];
+    __block NSString *timingLine=nil;
+    updater.timingLog=^(NSString *summary){ timingLine=summary; };
+    BOOL result=[updater updatePlan:plan root:root progress:^(NSString *phase,uint64_t done,uint64_t total){
         if([phase isEqual:@"verify"] && done==total) {
             // Reopen before the updater's normal end/cancellation cleanup. A
             // killed process could resume from this already durable receipt.
@@ -153,6 +156,9 @@ int main(void){@autoreleasepool{
         }
         if([phase isEqual:@"download"]){paused=YES;[client cancel];}
     } error:&error];
+    NSString *savedBytes=[NSString stringWithFormat:@"saved_bytes=%lu ",(unsigned long)asset.length];
+    assert([timingLine containsString:savedBytes]);
+    assert([timingLine containsString:@" write_s="] && [timingLine containsString:@" checkpoint_s="]);
     if(!paused)fprintf(stderr,"Cancel fixture failed before download: %s\n",error.localizedDescription.UTF8String);
     assert(!result && paused && savedDuringScan);assert([[NSData dataWithContentsOfFile:exe] isEqual:old]);assert([[NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@".build.info"]] isEqual:info]);
     assert([Text(@"settings edited while paused") writeToFile:settings atomically:YES]);

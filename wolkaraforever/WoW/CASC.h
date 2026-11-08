@@ -35,6 +35,7 @@ NSArray<NSString *> *TKWoWCASCRepairIndexGenerations(NSString *directory);// Wri
 - (BOOL)verifyKeyBytes:(const uint8_t *)key size:(uint64_t)size;
 - (void)discardVerification;
 - (BOOL)saveVerification:(NSError **)error;
+@property(nonatomic, readonly) NSTimeInterval appendWriteSeconds;
 @property(nonatomic, readonly) uint64_t verificationBytesRead;
 @property(nonatomic, readonly) uint64_t verificationBytesReused;
 - (BOOL)addData:(NSData *)data key:(NSString *)key error:(NSError **)error;

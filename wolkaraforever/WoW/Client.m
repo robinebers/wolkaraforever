@@ -104,6 +104,7 @@
     NSURLSession *_session;
     TKWoWTransfers *_transfers;
     NSError *_downloadFailure;
+    TKWoWTransferTiming _timing;
     NSData *_archiveTable;
     NSArray<NSString *> *_archives;
     NSString *_archiveConfig;
@@ -115,6 +116,13 @@
 - (void)dealloc { [_session invalidateAndCancel]; }
 - (void)cancel {
     [_lock lock]; _cancelled=YES; [_session invalidateAndCancel]; [_lock broadcast]; [_lock unlock];
+}
+- (TKWoWTransferTiming)takeTransferTiming {
+    [_lock lock];
+    TKWoWTransferTiming timing=_timing;
+    _timing=(TKWoWTransferTiming){0};
+    [_lock unlock];
+    return timing;
 }
 - (BOOL)cancelled { [_lock lock]; BOOL value=_cancelled; [_lock unlock]; return value; }
 - (void)failDownloads:(NSError *)error {
@@ -167,9 +175,12 @@ static BOOL RetryableNetworkError(NSError *error) {
         NSLog(@"[wow-update] Network error %ld; retrying request in %.0f s.",
               (long)failure.code,retryDelays[attempt]);
         [_lock lock];
+        NSTimeInterval waitStart=NSProcessInfo.processInfo.systemUptime;
         while (!_cancelled && !_downloadFailure) {
             if (![_lock waitUntilDate:deadline]) break;
         }
+        _timing.backoffs++;
+        _timing.backoffSeconds+=NSProcessInfo.processInfo.systemUptime-waitStart;
         BOOL stopped=_cancelled || _downloadFailure!=nil;
         if (stopped) failure=_downloadFailure?:TKWoWError(@"Download cancelled.");
         [_lock unlock];
@@ -202,11 +213,18 @@ static BOOL RetryableNetworkError(NSError *error) {
         [request setValue:[@"bytes=" stringByAppendingString:bounds] forHTTPHeaderField:@"Range"];
         transfer.range=[@"bytes " stringByAppendingString:bounds];
     }
+    NSTimeInterval requestStart=NSProcessInfo.processInfo.systemUptime;
     transfer.task=[_session dataTaskWithRequest:request];[_transfers add:transfer];[transfer.task resume];
     [_lock unlock];
     // Delegate completion is guaranteed by the resource timeout/cancellation.
     dispatch_semaphore_wait(transfer.done,DISPATCH_TIME_FOREVER);
-    [_lock lock]; BOOL cancelled=_cancelled; [_lock unlock];
+    NSTimeInterval elapsed=NSProcessInfo.processInfo.systemUptime-requestStart;
+    [_lock lock];
+    _timing.requests++;
+    _timing.requestSeconds+=elapsed;
+    _timing.receivedBytes+=transfer.data.length;
+    BOOL cancelled=_cancelled;
+    [_lock unlock];
     if (transfer.error || cancelled) {
         if (error) *error=transfer.error?:TKWoWError(@"Download cancelled.");
         return nil;

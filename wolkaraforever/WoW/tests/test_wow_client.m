@@ -283,10 +283,15 @@ static void TestConcurrentDownloads(void) {
         (unsigned long)(firstOffset+[objects[0] length]-1)];
     faulty[archiveKey]=@{@"data":archive,@"dropRange":firstRange,@"connectionLosses":@1};
     ResetProtocol(faulty);[seen removeAllObjects];error=nil;
+    [client takeTransferTiming];
     assert([client downloadEntries:records plan:plan indices:indices consume:^BOOL(NSData *data,NSString *key,NSError **problem){
         (void)problem;assert([TKWoWMD5(data) isEqual:key] && ![seen containsObject:key]);[seen addObject:key];return YES;
     } error:&error]);
     assert(!error && seen.count==objects.count && InjectedConnectionLosses==1 && StartedRequests==objects.count+1);
+
+    TKWoWTransferTiming timing=[client takeTransferTiming];
+    assert(timing.requests==StartedRequests && timing.backoffs==1 && timing.backoffSeconds>0);
+    assert(timing.receivedBytes>0 && timing.requestSeconds>0 && [client takeTransferTiming].requests==0);
 
     // Bound retries on an unreachable object and return the final transport error.
     NSURL *offline=[NSURL URLWithString:@"https://fixture.invalid/object"];
