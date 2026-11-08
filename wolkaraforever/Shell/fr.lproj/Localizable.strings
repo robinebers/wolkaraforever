@@ -98,6 +98,7 @@
 "home.phase.verify" = "Vérification des données existantes";
 "home.phase.reuse" = "Comparaison du contenu installé";
 "home.phase.indices" = "Repérage des fichiers à télécharger";
+"home.download.remaining" = "encore environ %@";
 "home.phase.download" = "Téléchargement des nouvelles données";
 "home.phase.files" = "Installation des fichiers du jeu";
 "home.phase.activate" = "Finalisation de la mise à jour";

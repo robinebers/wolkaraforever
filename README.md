@@ -14,9 +14,27 @@ voice input, add-on tooling, UI recovery, and diagnostics around it. It is not s
 Mac. You provide the device (iPad or iPhone), Apple development account, eligible WoW account, and game data;
 this repository includes none of them.
 
+## Upgrade an existing Duo installation
+
+This branch combines [pookee’s mobile interface](https://github.com/jklock/wolkaraforever/pull/23)
+with the fresh-install CDN fix, automatic request retries, and download speed and ETA.
+Wait for **Play** on the existing launcher, keep the same game region and language, and quit
+the launcher before installing from the same Mac checkout. Keep its private `local.env`
+with the same signing team, bundle ID, and Keychain group.
+
+1. Run `wolkaraforever/tools/install.sh` to update the existing app in place.
+2. Once the launcher finishes checking the existing client and offers **Play**, quit the
+   launcher again. Run `wolkaraforever/tools/push_addon.sh` to copy the mobile interface
+   into the finished installation. The script reads back the add-on files to verify the copy.
+3. Reopen WolkaraForever and select **Play**. At character selection, check **AddOns** for
+   **WolkaraRoue** (Interface mobile).
+
+The update reuses the installed game files. Blizzard publishing a newer build or selecting
+another game language can still require additional data.
+
 ## Playing on an iPhone
 
-The app also plays on a phone. It was tested on an **iPhone Duo with iOS 27.2**, Developer
+Pookee tested the phone interface on an **iPhone Duo with iOS 27.2**, Developer
 service mode, WoW Forever 1.60.1.70790: login, character selection and an in-world session on
 Wi-Fi (2026-11-05). On mobile data the developer service needs the app's documented recovery
 (turn mobile data off while it waits for the local connection, back on once the game starts).
@@ -95,7 +113,7 @@ supported integrated route needs:
 - approximately 70 GB free for a Forever installation.
 
 ```sh
-git clone https://github.com/jklock/wolkaraforever.git
+git clone -b feature/duo-mobile https://github.com/robinebers/wolkaraforever.git
 cd wolkaraforever
 cp local.env.example local.env
 wolkaraforever/tools/install_prerequisites.sh --check

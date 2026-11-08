@@ -28,35 +28,6 @@ static NSString *TKWoWLocaleName(NSString *locale) {
     dispatch_once(&once, ^{ known = @[@"enUS", @"frFR", @"esES", @"deDE"]; });
     return WKLocalized([@"locale." stringByAppendingString:[known containsObject:locale] ? locale : @"enUS"]);
 }
-// No saved choice yet: start from the language the installed game is already in (a copy
-// pushed from a Mac keeps its Config.wtf), then from the device's own language, then
-// English. Starting from English would make the first check plan an English download
-// over a French or German installation.
-static NSString *TKWoWDefaultLocale(NSDictionary *product) {
-    NSArray<NSString *> *supported=@[@"enUS", @"frFR", @"esES", @"deDE"];
-    NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *folder=[product[@"folder"] isKindOfClass:NSString.class] ? product[@"folder"] : nil;
-    if (documents.length && folder.length) {
-        NSString *config=[[[[documents stringByAppendingPathComponent:@"World of Warcraft"]
-            stringByAppendingPathComponent:folder] stringByAppendingPathComponent:@"WTF"]
-            stringByAppendingPathComponent:@"Config.wtf"];
-        NSString *text=[NSString stringWithContentsOfFile:config encoding:NSUTF8StringEncoding error:nil];
-        for (NSString *line in [text componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
-            if (![line hasPrefix:@"SET textLocale "]) continue;
-            NSArray<NSString *> *parts=[line componentsSeparatedByString:@"\""];
-            if (parts.count>=2 && [supported containsObject:parts[1]]) return parts[1];
-        }
-    }
-    for (NSString *identifier in NSLocale.preferredLanguages) {
-        NSString *primary=[[identifier stringByReplacingOccurrencesOfString:@"_" withString:@"-"]
-            componentsSeparatedByString:@"-"].firstObject.lowercaseString;
-        if ([primary isEqual:@"fr"]) return @"frFR";
-        if ([primary isEqual:@"de"]) return @"deDE";
-        if ([primary isEqual:@"es"]) return @"esES";
-        if ([primary isEqual:@"en"]) return @"enUS";
-    }
-    return @"enUS";
-}
 static NSString *TKWoWRegionName(NSString *region) {
     static NSArray<NSString *> *known; static dispatch_once_t once;
     dispatch_once(&once, ^{ known = @[@"eu", @"us", @"kr", @"tw"]; });
@@ -233,7 +204,8 @@ static double DownloadMBPerSecond(DownloadWindow *window, double now, uint64_t b
     for (NSDictionary *p in TKWoWProducts()) if ([p[@"id"] isEqual:[defaults stringForKey:@"WoWProduct"]]) _product=p;
     _region=[defaults stringForKey:@"WoWRegion"]?:@"eu";
     if (![@[@"eu",@"us",@"kr",@"tw"] containsObject:_region]) _region=@"eu";
-    _locale=[defaults stringForKey:@"WoWLocale"]?:TKWoWDefaultLocale(_product);
+    // Older installs used English without writing a preference. Preserve their download plan.
+    _locale=[defaults stringForKey:@"WoWLocale"]?:@"enUS";
     if (![@[@"enUS",@"frFR",@"esES",@"deDE"] containsObject:_locale]) _locale=@"enUS";
     return self;
 }

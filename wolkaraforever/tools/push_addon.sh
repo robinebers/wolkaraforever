@@ -22,13 +22,27 @@ case "${1:-}" in
     *) echo "usage: wolkaraforever/tools/push_addon.sh [--dry-run]" >&2; exit 2 ;;
 esac
 
-state=$(bash wolkaraforever/tools/pilot.sh state 2>&1) || { echo "$state" >&2; exit 1; }
-if echo "$state" | grep -q "a game session is live"; then
-    echo "push_addon: a game session is live; quit the game first (the Quit tile of the Interface mobile menu saves)" >&2
-    exit 1
-fi
-echo "$state" | grep -qE "update writing: 0 file" ||
-    { echo "push_addon: an update may be writing; try again when it has stopped" >&2; exit 1; }
+session=$(mktemp -d -t wolkara-addon)
+trap 'rm -rf "$session"' EXIT
+PILOT_SESSION="$session" bash wolkaraforever/tools/pilot.sh state >/dev/null
+grep -qx 'inspection_ok=1' "$session/state.txt" ||
+    { echo "push_addon: cannot inspect the device; unlock it and check the connection" >&2; exit 1; }
+grep -qx 'update_writing=0' "$session/state.txt" ||
+    { echo "push_addon: the updater recently wrote game files; wait until it finishes" >&2; exit 1; }
+grep -qx 'app_running=0' "$session/state.txt" ||
+    { echo "push_addon: quit the game and launcher before copying the add-on" >&2; exit 1; }
+# An interrupted first install may be idle with gigabytes in staging. Only copy to
+# a published installation, so we never create the active game folder prematurely.
+python3 - "$session/files.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1]) as handle:
+    paths = {entry.get("relativePath") for entry in json.load(handle)["result"]["files"]}
+root = "Documents/World of Warcraft/"
+required = {root + ".build.info", root + "_forever_/World of Warcraft.app/Contents/MacOS/World of Warcraft"}
+if not required.issubset(paths):
+    sys.exit("push_addon: wait for the launcher to finish installing Forever and offer Play")
+PY
 
 addon=addons/WolkaraRoue
 destination="World of Warcraft/_forever_/Interface/AddOns/WolkaraRoue"
