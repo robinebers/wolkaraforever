@@ -1,7 +1,7 @@
 -- Mobile chat sits between the thumbsticks and sends through the game's edit box. The compact feed
 -- shows fading messages, conversation and system tabs, and an unread whisper count. Tap to expand
 -- the history, scroll, or choose a destination. Tapping a player's name selects a whisper recipient.
--- Return opens the selected conversation via F12 (Say by default); slash commands use the game's
+-- Tap a destination to open its edit box; slash commands use the game's
 -- slash key. Hide collapses chat beside the keyboard, counts new player messages, and still allows
 -- typing.
 
@@ -11,7 +11,6 @@ local Chat = ns.Register("Chat", {})
 ns.Chat = Chat
 local MAX_MESSAGES = 300
 local LINES = 3          -- in the feed
-local OPEN_KEY = "F12"
 local PAD, GAP, ROW, HINT, ARROW, QUICK_H = 8, 6, 36, 20, 44, 28
 local BOTTOM = 0.12      -- fraction of screen height reserved for the app toolbar below chat
 local STRIP = 0.36       -- feed width as a fraction of the screen, between the lowest wheel slots
@@ -26,7 +25,7 @@ local target = { kind = "say" }
 local lastWhisper
 local unread = 0
 local pending = 0        -- player messages since the feed was hidden
-local ticker, panel, list, tabButtons, quick, chips, to, hint, badge, opener, close, arrows, holder
+local ticker, panel, list, tabButtons, quick, chips, to, hint, badge, close, arrows, holder
 local hideButton, mini, miniCount
 local hider = CreateFrame("Frame")
 hider:Hide()
@@ -77,7 +76,7 @@ local TARGETS = {
     { kind = "general", label = "General" }, { kind = "whisper", label = "Reply" },
 }
 
-local WRITE = "Tap the keyboard below chat to type. Press Return to send."
+local WRITE = "Choose a conversation, then type with the keyboard below chat."
 
 -- Message history
 
@@ -173,12 +172,13 @@ local function Prefix()
         local name = target.name or lastWhisper
         if name then return "/w " .. name .. " " end
     end
-    return ""
+    return nil
 end
 Chat.Prefix = Prefix
 
 local function OpenInput()
-    if ChatFrame_OpenChat then ChatFrame_OpenChat(Prefix(), DEFAULT_CHAT_FRAME) end
+    local prefix = Prefix()
+    if prefix and ChatFrame_OpenChat then ChatFrame_OpenChat(prefix, DEFAULT_CHAT_FRAME) end
 end
 
 local function Paint(button, selected)
@@ -190,6 +190,7 @@ function UpdateChips()
     for _, chip in ipairs(chips) do
         if chip.kind == "whisper" then
             local name = target.name or lastWhisper
+            chip:SetEnabled(name ~= nil)
             chip.text:SetText(name and ("To " .. Short(name)) or "Reply")
         end
         Paint(chip, chip.kind == target.kind)
@@ -482,6 +483,7 @@ function Chat:Init()
         if name then
             target = { kind = "whisper", name = name }
             UpdateChips()
+            OpenInput()
             hint:SetText("Whisper to " .. Short(name) .. ": tap the keyboard below chat.")
         elseif SetItemRef then
             SetItemRef(link, text, button, self)
@@ -502,9 +504,11 @@ function Chat:Init()
     chips = {}
     for i, info in ipairs(TARGETS) do
         local chip = ns.UIButton(panel, info.label, 100, ROW, function()
+            if info.kind == "whisper" and not lastWhisper then return end
             target = { kind = info.kind }
             if info.kind == "whisper" then target.name = lastWhisper end
             UpdateChips()
+            OpenInput()
             hint:SetText(WRITE)
         end)
         chip.kind = info.kind
@@ -513,10 +517,6 @@ function Chat:Init()
     hint = ns.Label(panel, "GameFontHighlightSmall", WRITE)
     hint:SetJustifyH("LEFT")
     if hint.SetWordWrap then hint:SetWordWrap(false) end
-
-    -- The app sends F12 before a message.
-    opener = CreateFrame("Button", "WolkaraMobileChatOpener", UIParent)
-    opener:SetScript("OnClick", function() ns.Guard("open chat input", OpenInput) end)
 
     -- Route add-on notices to both quick tabs when mobile chat replaces game chat.
     ns.ChatAdd = function(line)
@@ -550,11 +550,7 @@ function Chat:Layout()
         if frame and FCF_SetChatWindowFontSize then pcall(FCF_SetChatWindowFontSize, nil, frame, size) end
     end
     Arrange()
-    -- Bind F12 for both layouts because the app sends it before each message.
-    if SetOverrideBindingClick then
-        ClearOverrideBindings(opener)
-        SetOverrideBindingClick(opener, true, OPEN_KEY, "WolkaraMobileChatOpener", "LeftButton")
-    end
+
 end
 
 function Chat:SetEditing(on)

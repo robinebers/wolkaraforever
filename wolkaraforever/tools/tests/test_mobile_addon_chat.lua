@@ -3,7 +3,7 @@
 -- close button, no conversation chip runs off the panel (the 0.5 panel had both), the panel
 -- stays between the sticks and the strip sits at the bottom, clear of the app's toolbar. The
 -- quick tabs switch the strip between the players' talk and the system's messages; a whisper
--- counts as unread and becomes the Reply chip; F12 opens the game's input on the chosen
+-- counts as unread and becomes the Reply chip; tapping a destination opens the game's input on the chosen
 -- conversation; the game's input is invisible and takes no touch until it is typed in.
 --
 -- usage: luajit test_mobile_addon_chat.lua <path to Chat.lua>
@@ -63,10 +63,6 @@ ChatFrame1.editBox = box
 DEFAULT_CHAT_FRAME = ChatFrame1
 local opened
 ChatFrame_OpenChat = function(text) opened = text end
-local binding
-ClearOverrideBindings = function() end
-SetOverrideBindingClick = function(_, _, key, button) binding = { key, button } end
-
 local handlers = {}
 local ns = { STICK_X = 0.12, STICK_Y = 0.222, editing = false }
 function ns.Register(_, module) return module end
@@ -158,7 +154,7 @@ W = 760
 Check("narrow screen")
 W = 1000
 Chat:Layout()
-assert(binding[1] == "F12" and binding[2] == "WolkaraMobileChatOpener")
+assert(WolkaraMobileChatOpener == nil)
 
 -- The game's input: kept, invisible and touch-free until typed in, laid on the strip.
 local holder = box.parent
@@ -178,6 +174,8 @@ local function Tap(label, parent)
     end
     error("no button " .. label)
 end
+Tap("Reply", panel)
+assert(opened == nil, "no whisper recipient must not open public chat")
 handlers.CHAT_MSG_SAY("hello", "Ana-Realm")
 handlers.CHAT_MSG_LOOT("You receive loot: [Linen Cloth].")
 assert(#ticker.lines == 1 and ticker.lines[1]:find("hello"), "the talk strip shows the loot")
@@ -200,14 +198,12 @@ local reply
 for _, button in ipairs(Buttons(panel, 36)) do if button.text.text == "To Bob" then reply = button end end
 assert(reply, "the Reply chip does not name Bob")
 
--- F12, sent by the app before a line: the input opens on the chosen conversation.
-WolkaraMobileChatOpener.scripts.OnClick()
+-- Each destination opens its own chat input.
+Tap("Say", panel)
 assert(opened == "/s ", "Say is not the default")
 Tap("Group", panel)
-WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/p ")
 reply.scripts.OnClick(reply)
-WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/w Bob-Realm ")
 
 -- Touching the strip opens the panel on the same tab; the cross closes it.
@@ -245,10 +241,9 @@ assert(ticker.shown and not mini.shown, "Customise cannot reach the hidden strip
 ns.editing = false; Chat:SetEditing(false)
 assert(not ticker.shown and mini.shown)
 -- Writing still works, and touching the bubble brings the strip back, up to date, count cleared.
-WolkaraMobileChatOpener.scripts.OnClick()
 assert(opened == "/w Bob-Realm ")
 mini.scripts.OnClick(mini)
 assert(ns.db.chat.hidden == false and ticker.shown and not mini.shown and count.text == "")
 assert(ticker.lines[#ticker.lines]:find("hello"), "the strip missed what was said while hidden")
 
-print("mobile add-on chat: no tab or chip overflows on two widths, panel between the sticks, strip at the bottom, talk/system one touch apart, whisper counted and answered, F12 on the chosen conversation, input hidden until typed in, Hide leaves a counting button left of the keyboard: PASS")
+print("mobile add-on chat: no tab or chip overflows on two widths, panel between the sticks, strip at the bottom, talk/system one touch apart, whisper counted and answered, selected conversation, input hidden until typed in, Hide leaves a counting button left of the keyboard: PASS")

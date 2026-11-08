@@ -42,7 +42,7 @@ function ns.ApplyButton(button)
     button:SetAttribute("item", nil)
     button:SetAttribute("macro", nil)
     button:SetAttribute("macrotext", nil)
-    if ns.editing or not entry then
+    if not entry then
         button:SetAttribute("type", nil)
     elseif entry.kind == "spell" then
         button:SetAttribute("type", "spell")
@@ -238,7 +238,8 @@ function ns.CreateActionButton(name, parent, size, getEntry, setEntry)
     button:SetScript("PostClick", function(self, _, down)
         -- A wheel swipe suppresses both casting and the picker (Turn.lua).
         if self.swiped and not down then self.swiped = nil; return end
-        if InCombatLockdown() or down or not self.suppressed then return end
+        if InCombatLockdown() or not self.suppressed then return end
+        if down then ns.ApplyButton(self); return end
         if GetCursorInfo() then
             ns.AssignFromCursor(self)
         elseif ns.Picker then

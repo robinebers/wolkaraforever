@@ -68,7 +68,7 @@ static BOOL hardwareKeyboardAttached(void) {
 - (void)updateKeyboardButton;
 - (void)updateDraftButtons;
 - (void)replaceGameText:(NSString *)text;
-- (void)sendChatText:(NSString *)text;
+- (void)submitFieldText:(NSString *)text;
 // Brings up the layer's own keys when iPadOS has no software keyboard to give.
 - (void)showLayerKeyboard;
 // YES while the user has asked for the draft keyboard and it has not been
@@ -95,7 +95,7 @@ static BOOL hardwareKeyboardAttached(void) {
 @interface AKKeyboardTextView : UITextView <UITextViewDelegate>
 @property (nonatomic, weak) AKTouchControls *inputOwner;
 - (BOOL)forwardCommittedText;
-- (BOOL)sendDraftToChat;
+- (BOOL)submitDraft;
 - (void)discardDraft;
 - (BOOL)canModifyDraft;
 - (BOOL)canReplaceField;
@@ -144,12 +144,13 @@ static BOOL hardwareKeyboardAttached(void) {
     [self.undoManager removeAllActions];
     [self.inputOwner updateDraftButtons];
 }
+- (NSString *)fieldText {
+    if (self.secureTextEntry) return self.text;
+    return [[self.text componentsSeparatedByCharactersInSet:NSCharacterSet.controlCharacterSet] componentsJoinedByString:@" "];
+}
 - (BOOL)forwardCommittedText {
     if (![self canReplaceField]) return NO;
-    // Drafts cannot send Return/Tab or other control keys by pasting text.
-    // Those keys remain explicit actions in the accessory bar.
-    NSString *text = [[self.text componentsSeparatedByCharactersInSet:NSCharacterSet.controlCharacterSet]
-        componentsJoinedByString:@" "];
+    NSString *text = [self fieldText];
     [self discardDraft];
     // Once cleared after submission, repeated taps/queued Done callbacks must
     // not turn a successful replacement into an accidental empty replacement.
@@ -158,18 +159,16 @@ static BOOL hardwareKeyboardAttached(void) {
     [self.inputOwner replaceGameText:text];
     return YES;
 }
-// Return on the keyboard: the words go to the game's chat the way a player types them, and
-// the keyboard goes away. Slash commands are chat lines too, so /reload works the same way.
-- (BOOL)sendDraftToChat {
+// Submit the draft to the focused guest field.
+- (BOOL)submitDraft {
     if (![self canModifyDraft]) return NO;
-    NSString *text = [[[self.text componentsSeparatedByCharactersInSet:NSCharacterSet.controlCharacterSet]
-        componentsJoinedByString:@" "] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    NSString *text = [self fieldText];
     // Once a line has gone, a repeated or queued Return has nothing to send: a bare Return
     // would open the game's chat box again. A first Return with nothing typed still is one.
     if (!text.length && _didSubmitDraft) return NO;
     [self discardDraft];
     _didSubmitDraft = YES;
-    [self.inputOwner sendChatText:text];
+    [self.inputOwner submitFieldText:text];
     return YES;
 }
 - (BOOL)becomeFirstResponder {
@@ -217,14 +216,12 @@ static BOOL hardwareKeyboardAttached(void) {
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
     (void)textView; (void)range;
     if ([text isEqual:@"\n"]) {
-        // Send puts the draft in the game's chat (Replace is the button that only fills
-        // the selected field). Defer until UIKit finishes this edit; do not mutate its
-        // document here.
+        // Let UIKit finish this edit before clearing the draft.
         NSUInteger session = _session;
         __weak AKKeyboardTextView *weakSelf = self;
         [NSRunLoop.mainRunLoop performInModes:@[NSRunLoopCommonModes] block:^{
             AKKeyboardTextView *input = weakSelf;
-            if (input && input->_session == session) [input sendDraftToChat];
+            if (input && input->_session == session) [input submitDraft];
         }];
         return NO;
     }
@@ -461,9 +458,6 @@ static NSString *AKKeyAccessibilityNameKey(NSString *title) {
     AKTouchHaptics *_haptics;
     AKTouchGamepad *_gamepad;
     BOOL _tookOwnPlace;
-    // Whether one of the game's password fields has the keyboard: the game asked for secure
-    // event input (Carbon adapter, patch 0051).
-    BOOL _protectedField;
 }
 
 // This dylib is loaded by name, so nothing here can be called by the shell at link time. The
@@ -926,39 +920,17 @@ static void AKEmitTouch(void *context, AKTrackpadAction action, double x, double
     if ([self.delegate respondsToSelector:@selector(touchReplaceText:)]) [self.delegate touchReplaceText:text];
 }
 - (void)deleteBackward { [self.delegate touchSpecialKey:51 characters:@"\x7f"]; }
-// Nothing tells this layer whether the game's chat box is open, so sending must not depend
-// on it. A command starts with "/", the game's own key that opens the box with the slash in
-// it. A message is preceded by F12, which the Interface mobile add-on binds to "open the box
-// on the chosen conversation"; with the box already open, F12 types nothing (the adapter
-// never makes text of a function key: patch 0050). Either way the words land in the box and
-// Return sends them. The log names the kind of line only: this keyboard also types
-// passwords, and their length is not the log's business.
-static const unsigned short AKKeyF12 = 111;
 - (void)secureEventInputChanged:(NSNotification *)note {
-    _protectedField = [note.userInfo[@"enabled"] boolValue];
+    BOOL secure=[note.userInfo[@"enabled"] boolValue];
+    if (_keyboardInput.secureTextEntry == secure) return;
+    [_keyboardInput discardDraft];
+    _keyboardInput.secureTextEntry=secure;
+    [_keyboardInput reloadInputViews];
 }
-- (void)sendChatText:(NSString *)text {
-    if (!text.length) {
-        // Nothing typed: Return is just Return.
-        [self.delegate touchSpecialKey:36 characters:@"\r"];
-        return;
-    }
-    if (_protectedField) {
-        // A password field has the keyboard (the game asked for secure event input), so this
-        // line is not chat: type exactly what was written, then Return - the old keyboard's
-        // sequence without its leading Return. A chat key has no business in a password
-        // field. Nothing about the line is logged.
-        [self.delegate touchInsertText:text];
-        [self.delegate touchSpecialKey:36 characters:@"\r"];
-        AKLog(@"keyboard: a line went to a protected field");
-        [self dismissKeyboard];
-        return;
-    }
-    if (![text hasPrefix:@"/"]) [self.delegate touchSpecialKey:AKKeyF12 characters:@"\uF70F"];
-    [self.delegate touchInsertText:text];
+- (void)submitFieldText:(NSString *)text {
+    if (text.length) [self.delegate touchInsertText:text];
     [self.delegate touchSpecialKey:36 characters:@"\r"];
-    AKLog(@"keyboard: a line went to the chat (%@)", [text hasPrefix:@"/"] ? @"command" : @"message");
-    [self dismissKeyboard];
+    if (text.length) [self dismissKeyboard];
 }
 
 - (UIView *)inputAccessoryView {

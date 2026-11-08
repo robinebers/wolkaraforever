@@ -8,6 +8,7 @@ local Hud = ns.Register("Health bars", {})
 local player, target
 local MAX_AURAS = 10
 local AURA_SIZE = 30
+local secret = issecretvalue or function() return false end
 
 local function Bar(parent, height, r, g, b)
     local bar = CreateFrame("StatusBar", nil, parent)
@@ -36,7 +37,7 @@ local function Aura(unit, index, filter)
     end
     if UnitAura then
         local name, icon, count, _, duration, expiration = UnitAura(unit, index, filter)
-        if name then return icon, count, duration, expiration end
+        if secret(name) or name then return icon, count, duration, expiration end
     end
 end
 
@@ -126,12 +127,12 @@ local function UpdateAuras(frame)
         local index = 1
         while shown < MAX_AURAS do
             local icon, count, duration, expiration = Aura(frame.unit, index, filter)
-            if not icon then break end
+            if not secret(icon) and not icon then break end
             shown = shown + 1
             local aura = frame.auras[shown]
             aura.icon:SetTexture(icon)
-            aura.count:SetText((count and count > 1) and count or "")
-            if duration and duration > 0 and expiration then
+            aura.count:SetText((not secret(count) and count and count > 1) and count or "")
+            if not secret(duration) and not secret(expiration) and duration and duration > 0 and expiration then
                 aura.cooldown:SetCooldown(expiration - duration, duration)
                 aura.cooldown:Show()
             else
@@ -148,28 +149,38 @@ local function Update(frame)
     local unit = frame.unit
     if not UnitExists(unit) then return end
     local level = UnitLevel(unit)
-    local levelText = (level and level > 0) and tostring(level) or "??"
-    frame.name:SetText((UnitName(unit) or "") .. "  |cffbbbbbb" .. levelText .. "|r")
+    local name = UnitName(unit)
+    if secret(name) or secret(level) then
+        frame.name:SetText(name)
+    else
+        frame.name:SetText((name or "") .. "  |cffbbbbbb" .. ((level and level > 0) and tostring(level) or "??") .. "|r")
+    end
 
-    local health, maxHealth = UnitHealth(unit) or 0, UnitHealthMax(unit) or 0
-    frame.health:SetMinMaxValues(0, math.max(1, maxHealth))
+    local health, maxHealth = UnitHealth(unit), UnitHealthMax(unit)
+    frame.health:SetMinMaxValues(0, maxHealth)
     frame.health:SetValue(health)
-    local percent = maxHealth > 0 and math.floor(health * 100 / maxHealth + 0.5) or 0
-    if unit == "player" then
+    if secret(health) or secret(maxHealth) then
+        frame.health.text:SetText("")
+    elseif unit == "player" then
         frame.health.text:SetText(Short(health) .. " / " .. Short(maxHealth))
     else
+        local percent = maxHealth > 0 and math.floor(health * 100 / maxHealth + 0.5) or 0
         frame.health.text:SetText(percent .. " %")
-        if UnitIsDead(unit) then
+    end
+    if unit ~= "player" then
+        local dead, friendly, attackable = UnitIsDead(unit), UnitIsFriend("player", unit), UnitCanAttack("player", unit)
+        if not secret(dead) and dead then
             frame.health:SetStatusBarColor(0.4, 0.4, 0.4)
-        elseif UnitIsFriend("player", unit) then
+        elseif not secret(friendly) and friendly then
             frame.health:SetStatusBarColor(0.15, 0.75, 0.2)
-        elseif UnitCanAttack("player", unit) then
+        elseif not secret(attackable) and attackable then
             frame.health:SetStatusBarColor(0.85, 0.15, 0.1)
         else
             frame.health:SetStatusBarColor(0.9, 0.8, 0.2)
         end
-        local combo = GetComboPoints and GetComboPoints("player", "target") or 0
-        frame.combo:SetText(combo > 0 and ("Combo " .. combo) or "")
+        local combo = 0
+        if GetComboPoints then combo = GetComboPoints("player", "target") end
+        frame.combo:SetText(not secret(combo) and combo > 0 and ("Combo " .. combo) or "")
     end
 
     if frame.unit == "player" then
@@ -183,13 +194,14 @@ local function Update(frame)
         end
     end
 
-    local power, maxPower = UnitPower(unit) or 0, UnitPowerMax(unit) or 0
-    if maxPower > 0 then
-        local color = PowerBarColor and PowerBarColor[UnitPowerType(unit)]
+    local power, maxPower = UnitPower(unit), UnitPowerMax(unit)
+    if secret(maxPower) or maxPower > 0 then
+        local kind = UnitPowerType(unit)
+        local color = not secret(kind) and PowerBarColor and PowerBarColor[kind]
         if color then frame.power:SetStatusBarColor(color.r, color.g, color.b) end
         frame.power:SetMinMaxValues(0, maxPower)
         frame.power:SetValue(power)
-        frame.power.text:SetText(Short(power) .. " / " .. Short(maxPower))
+        frame.power.text:SetText((secret(power) or secret(maxPower)) and "" or Short(power) .. " / " .. Short(maxPower))
         frame.power:Show()
     else
         frame.power:Hide()

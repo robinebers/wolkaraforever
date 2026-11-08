@@ -459,22 +459,22 @@ static void AKFixtureInputSource(void *context) {
                 [(UIButton *)accessory.arrangedSubviews[5] sendActionsForControlEvents:UIControlEventTouchUpInside];
                 AKDrainFixtureEvents();
                 assert([fixture.text isEqual:expected]);
-                // The system keyboard's Send puts the draft in the game's chat: F12 (the key
-                // the Interface mobile add-on binds to its chat), the line, then Return, and
-                // the keyboard goes away. Replace stays the button that fills the selected
-                // field without pressing Return.
+                [NSNotificationCenter.defaultCenter postNotificationName:@"AKSecureEventInputDidChangeNotification"
+                    object:nil userInfo:@{@"enabled": @YES}];
+                assert(input.secureTextEntry);
+                input.text = @" secret ";
                 NSUInteger keysBefore = fixture.keyCodes.count, replacementsBefore = fixture.replacements;
                 [input.delegate textView:input shouldChangeTextInRange:NSMakeRange(input.text.length, 0) replacementText:@"\n"];
                 AKDrainFixtureEvents();
                 NSArray<NSNumber *> *sent = [fixture.keyCodes subarrayWithRange:NSMakeRange(keysBefore, fixture.keyCodes.count - keysBefore)];
-                if (sent.count < 2 || sent.firstObject.unsignedShortValue != 111 || sent.lastObject.unsignedShortValue != 36 ||
-                    ![fixture.text hasSuffix:@"done\r"] || fixture.replacements != replacementsBefore || input.text.length) {
+                if (sent.count < 2 || [sent containsObject:@111] || sent.lastObject.unsignedShortValue != 36 ||
+                    ![fixture.text hasSuffix:@" secret \r"] || fixture.replacements != replacementsBefore || input.text.length) {
                     fprintf(stderr, "TOUCH_UI_SEND_MISMATCH: keys=%s text=%s replacements=%lu->%lu draft=%s\n",
                             sent.description.UTF8String, fixture.text.UTF8String, (unsigned long)replacementsBefore,
                             (unsigned long)fixture.replacements, input.text.UTF8String);
                 }
-                assert(sent.count >= 2 && sent.firstObject.unsignedShortValue == 111 && sent.lastObject.unsignedShortValue == 36);
-                assert([fixture.text hasSuffix:@"done\r"] && fixture.replacements == replacementsBefore && !input.text.length);
+                assert(sent.count >= 2 && ![sent containsObject:@111] && sent.lastObject.unsignedShortValue == 36);
+                assert([fixture.text hasSuffix:@" secret \r"] && fixture.replacements == replacementsBefore && !input.text.length);
                 // A repeated or queued Return after the line has gone sends nothing more.
                 keysBefore = fixture.keyCodes.count;
                 [input.delegate textView:input shouldChangeTextInRange:NSMakeRange(0, 0) replacementText:@"\n"];

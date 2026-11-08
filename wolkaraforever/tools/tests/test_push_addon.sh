@@ -6,7 +6,7 @@ work=$(mktemp -d -t wolkara-addon-test)
 trap 'rm -rf "$work"' EXIT
 cd "$work"
 mkdir -p wolkaraforever/tools addons/WolkaraRoue bin
-cp "$tools"/{push_addon,env}.sh wolkaraforever/tools/
+cp "$tools"/{push_addon,env,require_idle_device}.sh wolkaraforever/tools/
 touch addons/WolkaraRoue/{Interface.toc,Core.lua,Bindings.xml}
 export DEVICE=fixture
 export PATH="$work/bin:$PATH"

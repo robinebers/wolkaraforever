@@ -329,7 +329,7 @@
 /* ---- Commandes et clavier à l'écran ---- */
 "touch.draft.label" = "Texte de remplacement";
 "touch.draft.hint" = "Touchez Remplacer pour remplacer le champ du jeu sélectionné, ou laissez vide pour l’effacer. Le texte déjà présent dans le jeu n’est pas affiché ici.";
-"touch.draft.placeholder" = "Entrée envoie dans le chat · Remplacer écrit dans le champ choisi";
+"touch.draft.placeholder" = "Sélectionnez un champ ou ouvrez le chat · Entrée envoie le texte";
 "touch.draft.replace" = "Remplacer";
 "touch.draft.replace.hint" = "Remplace tout le champ du jeu sélectionné. Un brouillon vide l’efface. N’appuie pas sur Entrée.";
 "touch.draft.clear" = "Effacer le brouillon";

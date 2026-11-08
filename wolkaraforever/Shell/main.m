@@ -19,6 +19,7 @@
 #import "../Voice/Dictation.h"
 #import "../Voice/VoiceSettings.h"
 #import "../WoW/CASC.h"
+#import "../WoW/AddonStore.h"
 #import "../WoW/WoWViewController.h"
 #import "LaunchProgressView.h"
 #import "NativeGuest.h"
@@ -442,6 +443,13 @@ static NSString *AKAudioStateDescription(void) {
           saved ? [NSString stringWithFormat:@"%llu bytes", saved.fileSize] : @"not there yet");
     [TKWolkaraForeverConfig.shared load];
     NSArray<NSString *> *arguments=NSProcessInfo.processInfo.arguments;
+    NSString *stage = NSProcessInfo.processInfo.environment[@"WOLKARA_MOBILE_ADDON_JOB"];
+    NSUUID *job = stage ? [[NSUUID alloc] initWithUUIDString:stage] : nil;
+    if (job) {
+        NSError *error = nil;
+        if (!TKPublishMobileAddon(NSHomeDirectory(), job, &error))
+            WKLog("addons", @"Mobile add-on install failed: %@", error.localizedDescription);
+    }
     // WolkaraForever: report what the controller has and what it does, so pad input is
     // measured rather than assumed. It reads only, and never consumes an input.
     // See development/technical/CONTROLLER_INPUT.md.

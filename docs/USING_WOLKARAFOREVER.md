@@ -144,9 +144,9 @@ on-screen keyboard includes text, symbols, and dictation entry; the gamepad has 
 size, opacity, grid, and haptic controls. Physical keyboard and controller input can also be
 mapped in the app.
 
-What you type goes to a draft first. The keyboard's **Send** puts the line in the game's
-chat: F12, which the Mobile UI add-on binds to its chosen conversation, then the words
-and Return (a line that starts with `/` is a command and skips F12). **Replace** instead fills
+Select a chat destination or focus a game field before opening the keyboard.
+Without the add-on, open standard chat with **↵** in an empty draft. **Send** types the
+draft into the focused field and presses Return. **Replace** instead fills
 the selected game field and does not press Return; **↵** on the accessory bar is a plain Return.
 
 Touch settings use two columns when there is enough width and remain scrollable in smaller

@@ -1,0 +1,36 @@
+--- a/translation/AppKit/AppKit.m
++++ b/translation/AppKit/AppKit.m
+@@ -282,7 +282,7 @@
+     return AKHeldFlags(held);
+ }
+ 
+-@interface AKHostView : UIView <UIPointerInteractionDelegate, AKTouchControlsDelegate>
++@interface AKHostView : UIView <UIPointerInteractionDelegate, AKTouchControlsDelegate, UIGestureRecognizerDelegate>
+ @property (nonatomic, weak) NSWindow *nsWindow;
+ - (BOOL)ak_configuringTouchControls;
+ @end
+@@ -314,6 +314,7 @@
+     if ((self = [super initWithFrame:f])) {
+         self.multipleTouchEnabled = YES;
+         _pinch = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(directPinch:)];
++        _pinch.delegate = self;
+         _pinch.cancelsTouchesInView = NO; _pinch.delaysTouchesEnded = NO;
+         [self addGestureRecognizer:_pinch];
+         // Before the first pointer event the cursor rests mid-window, as a
+@@ -701,7 +702,16 @@
+     event.timestamp = NSProcessInfo.processInfo.systemUptime;
+     [NSApp postEvent:event atStart:NO];
+ }
++- (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceiveTouch:(UITouch *)touch {
++    return recognizer != _pinch || (touch.view == self && touch.type == UITouchTypeDirect);
++}
+ - (void)directPinch:(UIPinchGestureRecognizer *)pinch {
++    if (pinch.state == UIGestureRecognizerStateCancelled ||
++        (pinch.state == UIGestureRecognizerStateEnded && pinch.numberOfTouches == 0)) {
++        _directMulti = NO;
++        _directTouch = nil;
++        return;
++    }
+     if (_touchControls.trackpadEnabled) return;
+     if (pinch.state == UIGestureRecognizerStateBegan) {
+         [self beginDirectMulti];

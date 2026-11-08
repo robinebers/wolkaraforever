@@ -53,8 +53,7 @@ For a phone it brings:
 - **Jumping while running**: the Jump button of the "sticks only" layout sends the game's own
   Space and reaches the whole area under the camera stick.
 - **The app's toolbar at the bottom** (keyboard, mouse, gamepad, settings), centred between the
-  thumbs and just under the add-on's chat: its keyboard opens the chat, and Return sends the
-  line to the conversation chosen there, Say by default. While typing it moves to the top,
+  thumbs and just under the add-on's chat: choose a conversation to open chat, then type and press Return. While typing it moves to the top,
   clear of the keyboard.
 - **Typing a password**: a password field receives exactly what was typed, and function keys are
   never turned into text.

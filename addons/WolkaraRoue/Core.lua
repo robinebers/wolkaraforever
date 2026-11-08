@@ -463,6 +463,7 @@ ns.On("PLAYER_REGEN_DISABLED", function()
 end)
 
 ns.On("PLAYER_REGEN_ENABLED", function()
+    if ns.editing then ns.SetEditing(false) end
     if pendingLayout then
         pendingLayout = false
         ns.Each("Layout")

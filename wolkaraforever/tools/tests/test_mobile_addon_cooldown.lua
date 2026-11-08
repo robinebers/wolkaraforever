@@ -28,6 +28,11 @@ local button = {
         Show = function(self) self.shown = true end, Hide = function(self) self.shown = false end },
     GetEntry = function() return { kind = "spell", id = 42 } end,
 }
+ns.editing = true
+ns.SpellName = function() return "Test spell" end
+button.SetAttribute = function(self, key, value) self[key] = value end
+assert(ns.ApplyButton(button) and button.type == "spell" and button.spell == "Test spell")
+ns.editing = false
 local function Tick(seconds) now = now + seconds; ticker.OnUpdate(ticker, 0.2) end
 
 -- The text: minutes, whole seconds, then tenths in the last three seconds.

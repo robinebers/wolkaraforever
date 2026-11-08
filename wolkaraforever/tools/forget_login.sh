@@ -27,32 +27,41 @@ case "${1:-}" in
     *) echo "usage: wolkaraforever/tools/forget_login.sh [--dry-run]" >&2; exit 2 ;;
 esac
 
-state=$(bash wolkaraforever/tools/pilot.sh state 2>&1) || { echo "$state" >&2; exit 1; }
-if echo "$state" | grep -q "a game session is live"; then
-    echo "forget_login: a game session is live; close the game first (it rewrites Config.wtf on exit)" >&2
-    exit 1
-fi
-echo "$state" | grep -qE "update writing: 0 file" ||
-    { echo "forget_login: an update may be writing; try again when it has stopped" >&2; exit 1; }
+umask 077
+session=$(mktemp -d -t wolkara-login)
+trap 'rm -rf "$session"' EXIT
+bash wolkaraforever/tools/require_idle_device.sh "$session"
 
 config="World of Warcraft/_forever_/WTF/Config.wtf"
-backup="build/wtf-backups/$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$backup"
-DEVICE_LOG_FILE="$config" bash wolkaraforever/tools/device_log.sh 0 > /dev/null
-cp build/device-log-files/Config.wtf "$backup/Config.wtf"
-grep -vE '^SET (accountName|accountList) ' "$backup/Config.wtf" > "$backup/Config.forgotten.wtf" || true
-before=$(wc -l < "$backup/Config.wtf" | tr -d ' ')
-after=$(wc -l < "$backup/Config.forgotten.wtf" | tr -d ' ')
-echo "forget_login: $((before - after)) remembered line(s); the original is kept at $backup/Config.wtf"
-if [ "$before" -eq "$after" ]; then echo "forget_login: nothing is remembered; nothing written"; exit 0; fi
-[ "$after" -gt 0 ] || { echo "forget_login: refusing to write an empty Config.wtf" >&2; exit 1; }
+mkdir -p build/wtf-backups
+backup=$(mktemp -d build/wtf-backups/login.XXXXXXXX)
+read_config() {
+    xcrun devicectl device copy from --device "$device" --domain-type appDataContainer \
+        --domain-identifier "$bundle" --source "Documents/$config" --destination "$1" >/dev/null
+}
+read_config "$backup/Config.wtf"
+echo "forget_login: original saved at $backup/Config.wtf"
+python3 - "$backup" <<'FILTER'
+from pathlib import Path
+import sys
+folder = Path(sys.argv[1])
+lines = (folder / "Config.wtf").read_bytes().splitlines(keepends=True)
+filtered = b"".join(line for line in lines if not line.startswith((b"SET accountName ", b"SET accountList ")))
+if not filtered:
+    sys.exit("forget_login: refusing to write an empty Config.wtf")
+result = folder / "Config.forgotten.wtf"
+result.write_bytes(filtered)
+if result.read_bytes() != filtered:
+    sys.exit("forget_login: filtered config verification failed")
+FILTER
+if cmp -s "$backup/Config.wtf" "$backup/Config.forgotten.wtf"; then echo "forget_login: nothing to remove"; exit 0; fi
 if [ "$dry" = 1 ]; then echo "forget_login: dry run, nothing written"; exit 0; fi
 
 xcrun devicectl device copy to --device "$device" --domain-type appDataContainer \
     --domain-identifier "$bundle" --source "$backup/Config.forgotten.wtf" \
     --destination "Documents/$config" > /dev/null
-DEVICE_LOG_FILE="$config" bash wolkaraforever/tools/device_log.sh 0 > /dev/null
-if ! cmp -s build/device-log-files/Config.wtf "$backup/Config.forgotten.wtf"; then
+read_config "$session/readback"
+if ! cmp -s "$session/readback" "$backup/Config.forgotten.wtf"; then
     echo "forget_login: the file read back from the device is not the one written" >&2
     exit 1
 fi

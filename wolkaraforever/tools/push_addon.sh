@@ -24,13 +24,7 @@ esac
 
 session=$(mktemp -d -t wolkara-addon)
 trap 'rm -rf "$session"' EXIT
-PILOT_SESSION="$session" bash wolkaraforever/tools/pilot.sh state >/dev/null
-grep -qx 'inspection_ok=1' "$session/state.txt" ||
-    { echo "push_addon: cannot inspect the device; unlock it and check the connection" >&2; exit 1; }
-grep -qx 'update_writing=0' "$session/state.txt" ||
-    { echo "push_addon: the updater recently wrote game files; wait until it finishes" >&2; exit 1; }
-grep -qx 'app_running=0' "$session/state.txt" ||
-    { echo "push_addon: quit the game and launcher before copying the add-on" >&2; exit 1; }
+bash wolkaraforever/tools/require_idle_device.sh "$session"
 # An interrupted first install may be idle with gigabytes in staging. Only copy to
 # a published installation, so we never create the active game folder prematurely.
 python3 - "$session/files.json" <<'PY'
@@ -51,13 +45,25 @@ files=$(cd "$addon" && ls -- *.toc *.lua *.xml 2>/dev/null)
 echo "push_addon: $(echo "$files" | wc -l | tr -d ' ') file(s) to $destination"
 if [ "$dry" = 1 ]; then echo "$files"; echo "push_addon: dry run, nothing copied"; exit 0; fi
 
+job=$(uuidgen | tr '[:lower:]' '[:upper:]')
+stage="tmp/mobile-addon-$job"
+copy=(xcrun devicectl device copy)
+scope=(--device "$device" --domain-type appDataContainer --domain-identifier "$bundle")
 for file in $files; do
-    xcrun devicectl device copy to --device "$device" --domain-type appDataContainer \
-        --domain-identifier "$bundle" --source "$addon/$file" --destination "Documents/$destination/$file" > /dev/null
+    "${copy[@]}" to "${scope[@]}" --source "$addon/$file" --destination "$stage/$file" >/dev/null
+    "${copy[@]}" from "${scope[@]}" --source "$stage/$file" --destination "$session/$file" >/dev/null
+    cmp "$session/$file" "$addon/$file"
 done
-for file in $files; do
-    DEVICE_LOG_FILE="$destination/$file" bash wolkaraforever/tools/device_log.sh 0 > /dev/null
-    cmp -s "build/device-log-files/$file" "$addon/$file" ||
-        { echo "push_addon: $file read back from the device is not the one copied" >&2; exit 1; }
+
+DEVICECTL_CHILD_WOLKARA_MOBILE_ADDON_JOB="$job" xcrun devicectl device process launch --device "$device" "$bundle" >/dev/null
+for _ in {1..15}; do
+    if "${copy[@]}" from "${scope[@]}" --source "Documents/$destination/.install-id" \
+        --destination "$session/receipt" >/dev/null 2>&1 && [[ $(cat "$session/receipt") == "$job" ]]; then
+        echo "push_addon: verified and installed; ready for the next game launch"
+        exit 0
+    fi
+    rm -f "$session/receipt"
+    sleep 1
 done
-echo "push_addon: done; every file read back identical. The game loads it at its next login or /reload."
+echo "push_addon: activation unconfirmed; check the launcher log before retrying" >&2
+exit 1

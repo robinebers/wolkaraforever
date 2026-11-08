@@ -330,7 +330,7 @@
 /* ---- On-screen controls and keyboard ---- */
 "touch.draft.label" = "Replacement text";
 "touch.draft.hint" = "Tap Replace to replace the selected game field, or leave this empty to clear it. Existing game text is not shown here.";
-"touch.draft.placeholder" = "Return sends to the chat · Replace writes into the selected field";
+"touch.draft.placeholder" = "Focus a field or open chat first · Return submits the draft";
 "touch.draft.replace" = "Replace";
 "touch.draft.replace.hint" = "Replaces the whole selected game field. An empty draft clears it. Does not press Return.";
 "touch.draft.clear" = "Clear draft";

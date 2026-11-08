@@ -330,7 +330,7 @@
 /* ---- On-screen controls and keyboard ---- */
 "touch.draft.label" = "Ersatztext";
 "touch.draft.hint" = "Tippen Sie auf Ersetzen, um das gewählte Spielfeld zu ersetzen, oder lassen Sie das Feld leer, um es zu leeren. Vorhandener Spieltext wird hier nicht angezeigt.";
-"touch.draft.placeholder" = "Eingabe sendet in den Chat · Ersetzen schreibt ins gewählte Feld";
+"touch.draft.placeholder" = "Zuerst ein Feld auswählen oder den Chat öffnen · Eingabe sendet den Entwurf";
 "touch.draft.replace" = "Ersetzen";
 "touch.draft.replace.hint" = "Ersetzt das gesamte gewählte Spielfeld. Ein leerer Entwurf leert es. Die Eingabetaste wird nicht gedrückt.";
 "touch.draft.clear" = "Entwurf leeren";

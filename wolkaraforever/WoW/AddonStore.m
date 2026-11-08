@@ -1,6 +1,7 @@
 #import "AddonStore.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <sys/file.h>
+#include <sys/stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -36,6 +37,53 @@ static const NSInteger ManifestFormat    = 2;
 static NSString *const ForeverInterface = @"16001";
 
 static BOOL Fail(NSError **error, NSString *message) { if(error)*error=[NSError errorWithDomain:@"WolkaraForever.AddOns" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];return NO; }
+
+BOOL TKPublishMobileAddon(NSString *home, NSUUID *job, NSError **error) {
+    home = home.stringByResolvingSymlinksInPath;
+    NSString *root = [home stringByAppendingPathComponent:@"Documents/World of Warcraft"];
+    NSString *stage = [home stringByAppendingPathComponent:[@"tmp/mobile-addon-" stringByAppendingString:job.UUIDString]];
+    NSString *parent = [root stringByAppendingPathComponent:@"_forever_/Interface/AddOns"];
+    NSString *live = [parent stringByAppendingPathComponent:@"WolkaraRoue"];
+    NSFileManager *fm = NSFileManager.defaultManager;
+    int lock = TKWoWAcquireUpdateLock(root, error);
+    if (lock < 0) return NO;
+    @try {
+        if (![live.stringByResolvingSymlinksInPath isEqual:live] ||
+            ![stage.stringByResolvingSymlinksInPath isEqual:stage] ||
+            ![fm fileExistsAtPath:[root stringByAppendingPathComponent:@".build.info"]])
+            return Fail(error, @"Invalid mobile add-on destination.");
+        NSArray *incoming = [fm contentsOfDirectoryAtPath:stage error:error];
+        if (![incoming containsObject:@"WolkaraRoue.toc"]) return Fail(error, @"Missing mobile add-on manifest.");
+        for (NSString *file in incoming) {
+            NSString *path = [stage stringByAppendingPathComponent:file];
+            if (![@[@"toc", @"lua", @"xml"] containsObject:file.pathExtension] ||
+                ![[fm attributesOfItemAtPath:path error:error].fileType isEqual:NSFileTypeRegular])
+                return Fail(error, @"Unexpected staged add-on file.");
+        }
+        BOOL replacing = [fm fileExistsAtPath:live];
+        if (replacing) {
+            NSArray *existing = [fm contentsOfDirectoryAtPath:live error:error];
+            if (!existing) return NO;
+            for (NSString *file in existing) {
+                if ([incoming containsObject:file] || [file isEqual:@".install-id"]) continue;
+                if (![fm copyItemAtPath:[live stringByAppendingPathComponent:file]
+                                 toPath:[stage stringByAppendingPathComponent:file] error:error]) return NO;
+            }
+        }
+        if (![job.UUIDString writeToFile:[stage stringByAppendingPathComponent:@".install-id"]
+                             atomically:YES encoding:NSUTF8StringEncoding error:error] ||
+            ![fm createDirectoryAtPath:parent withIntermediateDirectories:YES attributes:nil error:error]) return NO;
+        if (renamex_np(stage.fileSystemRepresentation, live.fileSystemRepresentation, replacing ? RENAME_SWAP : RENAME_EXCL)) {
+            if (error) *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
+            return NO;
+        }
+        if (replacing) [fm removeItemAtPath:stage error:NULL];
+        return YES;
+    } @finally {
+        TKWoWReleaseUpdateLock(lock);
+    }
+}
+
 static NSString *TOC(NSString *folder) {
     NSArray *names=[[NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:NULL] sortedArrayUsingSelector:@selector(compare:)];
     for(NSString *name in names) if([name.pathExtension.lowercaseString isEqual:@"toc"]) {
