@@ -2,6 +2,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+FOUNDATION_EXPORT BOOL TKPublishMobileAddon(NSString *home, NSUUID *job, NSError **error);
+
 // The keys of a package's provider identity.
 //
 // A provider identity is recorded, never inferred. A folder called "Details" is not the

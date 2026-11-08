@@ -21,6 +21,8 @@
 // The last key event this guest view was given, so a test can say whether the adapter posted
 // one at all. Nil is the answer that matters for a key the user has taken.
 @property (nonatomic, strong, nullable) NSEvent *lastKeyEvent;
+// Every key this guest view was given, in order, so a test can read a whole sequence.
+@property NSMutableArray<NSNumber *> *keyCodes;
 @end
 @implementation AKInputFixtureView
 - (instancetype)initWithFrame:(NSRect)frame {
@@ -28,6 +30,7 @@
         self.wantsLayer = YES;
         self.layer.backgroundColor = [UIColor colorWithRed:0.06 green:0.10 blue:0.16 alpha:1].CGColor;
         _text = [NSMutableString new];
+        _keyCodes = [NSMutableArray new];
         _lastAction = @"Ready";
         for (NSString *key in @[@"heading", @"instructions", @"result"]) {
             CATextLayer *label = [CATextLayer new];
@@ -58,6 +61,7 @@
 - (BOOL)acceptsFirstResponder { return YES; }
 - (void)keyDown:(NSEvent *)event {
     self.lastKeyEvent = event;
+    [self.keyCodes addObject:@(event.keyCode)];
     if (event.keyCode == 0 && (event.modifierFlags & NSEventModifierFlagCommand)) {
         self.selection = NSMakeRange(0, self.text.length);
         self.replacements++;
@@ -338,6 +342,13 @@ static void AKFixtureInputSource(void *context) {
                 [reference becomeFirstResponder];
                 return;
             }
+            // Not typing: the toolbar sits at the bottom centre, between the thumbs.
+            [host layoutIfNeeded];
+            CGRect resting = controls.frame;
+            if (selfTest) {
+                assert(fabs(CGRectGetMidX(resting) - CGRectGetMidX(host.bounds)) < 1);
+                assert(fabs(CGRectGetMaxY(resting) - (CGRectGetMaxY(host.bounds) - host.safeAreaInsets.bottom - 8)) < 1);
+            }
             [controls toggleKeyboard];
             if (!selfTest) return;
             [NSTimer scheduledTimerWithTimeInterval:1 repeats:NO block:^(NSTimer *timer) {
@@ -348,7 +359,9 @@ static void AKFixtureInputSource(void *context) {
                 assert(CGRectGetMaxY(controls.frame) <= CGRectGetMinY(host.keyboardLayoutGuide.layoutFrame));
                 assert(CGRectGetMinY(controls.frame) >= 0);
                 CGRect toolbarFrame = controls.frame;
-                assert(fabs(CGRectGetMidX(toolbarFrame) - CGRectGetMidX(host.safeAreaLayoutGuide.layoutFrame)) < 1);
+                // The Duo can have unequal horizontal insets. Keep the toolbar
+                // centred on the screen while typing, as it is with the keyboard closed.
+                assert(fabs(CGRectGetMidX(toolbarFrame) - CGRectGetMidX(host.bounds)) < 1);
                 assert(fabs(CGRectGetMinY(toolbarFrame) - CGRectGetMinY(host.safeAreaLayoutGuide.layoutFrame) - 8) < 1);
                 UITextView *input = (UITextView *)AKFindInputView(host, @"wolkaraforever.keyboard.draft");
                 UIButton *insert = (UIButton *)AKFindInputView(host, @"wolkaraforever.keyboard.insert");
@@ -446,11 +459,31 @@ static void AKFixtureInputSource(void *context) {
                 [(UIButton *)accessory.arrangedSubviews[5] sendActionsForControlEvents:UIControlEventTouchUpInside];
                 AKDrainFixtureEvents();
                 assert([fixture.text isEqual:expected]);
-                // The system Done key replaces only; Return stays explicit.
+                [NSNotificationCenter.defaultCenter postNotificationName:@"AKSecureEventInputDidChangeNotification"
+                    object:nil userInfo:@{@"enabled": @YES}];
+                assert(input.secureTextEntry);
+                input.text = @" secret ";
+                NSUInteger keysBefore = fixture.keyCodes.count, replacementsBefore = fixture.replacements;
                 [input.delegate textView:input shouldChangeTextInRange:NSMakeRange(input.text.length, 0) replacementText:@"\n"];
                 AKDrainFixtureEvents();
-                [expected setString:@" done"];
-                assert([fixture.text isEqual:expected] && !input.text.length);
+                NSArray<NSNumber *> *sent = [fixture.keyCodes subarrayWithRange:NSMakeRange(keysBefore, fixture.keyCodes.count - keysBefore)];
+                if (sent.count < 2 || [sent containsObject:@111] || sent.lastObject.unsignedShortValue != 36 ||
+                    ![fixture.text hasSuffix:@" secret \r"] || fixture.replacements != replacementsBefore || input.text.length) {
+                    fprintf(stderr, "TOUCH_UI_SEND_MISMATCH: keys=%s text=%s replacements=%lu->%lu draft=%s\n",
+                            sent.description.UTF8String, fixture.text.UTF8String, (unsigned long)replacementsBefore,
+                            (unsigned long)fixture.replacements, input.text.UTF8String);
+                }
+                assert(sent.count >= 2 && ![sent containsObject:@111] && sent.lastObject.unsignedShortValue == 36);
+                assert([fixture.text hasSuffix:@" secret \r"] && fixture.replacements == replacementsBefore && !input.text.length);
+                // A repeated or queued Return after the line has gone sends nothing more.
+                keysBefore = fixture.keyCodes.count;
+                [input.delegate textView:input shouldChangeTextInRange:NSMakeRange(0, 0) replacementText:@"\n"];
+                AKDrainFixtureEvents();
+                assert(fixture.keyCodes.count == keysBefore);
+                [expected setString:fixture.text];
+                // Open again to type more; the accessory's Return is still a plain Return.
+                [controls toggleKeyboard];
+                AKDrainFixtureEvents();
                 [(UIButton *)accessory.arrangedSubviews[5] sendActionsForControlEvents:UIControlEventTouchUpInside];
                 AKDrainFixtureEvents();
                 [expected appendString:@"\r"];
@@ -474,9 +507,13 @@ static void AKFixtureInputSource(void *context) {
                 assert(!controls.keyboardVisible && !input.text.length && input.superview.hidden);
                 [input insertText:@" background result"];
                 [host layoutIfNeeded];
-                assert(CGRectEqualToRect(toolbarFrame, controls.frame));
+                // The keyboard gone, the toolbar is back at the bottom, wherever the gamepad is.
+                assert(!CGRectEqualToRect(toolbarFrame, controls.frame));
+                CGRect down = controls.frame;
+                assert(fabs(CGRectGetMaxY(down) - (CGRectGetMaxY(host.bounds) - host.safeAreaInsets.bottom - 8)) < 1);
+                assert(fabs(CGRectGetMidX(down) - CGRectGetMidX(host.bounds)) < 1);
                 [controls setGamepadVisible:NO]; [host layoutIfNeeded];
-                assert(CGRectEqualToRect(toolbarFrame, controls.frame));
+                assert(CGRectEqualToRect(down, controls.frame));
 
                 // --- the optional performance HUD -----------------------------------
                 AKPerformanceOverlay *overlay = [host valueForKey:@"_performanceOverlay"];

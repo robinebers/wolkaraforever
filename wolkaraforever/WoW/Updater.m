@@ -249,14 +249,36 @@ static BOOL ValidCapacity(NSNumber *capacity) {
         _client.progress=progress;
         uint64_t transferBytes=required-30*(missing.length/sizeof(TKWoWDownloadEntry));
         __block uint64_t downloaded=0,checkpoint=0;__block double lastProgress=0;
-        if(![_client downloadEntries:missing plan:plan indices:indices consume:^BOOL(NSData *raw,NSString *key,NSError **problem) {
+        [_client takeTransferTiming]; // Start at the bulk download, after verification.
+        __block NSTimeInterval windowStart=NSProcessInfo.processInfo.systemUptime, priorWrites=store.appendWriteSeconds;
+        void (^reportTiming)(NSTimeInterval)=^(NSTimeInterval checkpointSeconds) {
+            if (!self.timingLog) return;
+            NSTimeInterval now=NSProcessInfo.processInfo.systemUptime;
+            TKWoWTransferTiming net=[self->_client takeTransferTiming];
+            self.timingLog([NSString stringWithFormat:
+                @"wall_s=%.2f saved_bytes=%llu requests=%lu received_bytes=%llu cdn_s=%.3f "
+                 "retry_waits=%lu retry_s=%.3f write_s=%.3f checkpoint_s=%.3f",
+                now-windowStart,checkpoint,(unsigned long)net.requests,net.receivedBytes,net.requestSeconds,
+                (unsigned long)net.backoffs,net.backoffSeconds,store.appendWriteSeconds-priorWrites,checkpointSeconds]);
+            windowStart=now;
+            priorWrites=store.appendWriteSeconds;
+        };
+        BOOL transferred=[_client downloadEntries:missing plan:plan indices:indices consume:^BOOL(NSData *raw,NSString *key,NSError **problem) {
             if(![store addData:raw key:key error:problem])return NO;
             downloaded+=raw.length;checkpoint+=raw.length;
             double now=NSDate.timeIntervalSinceReferenceDate;
             if(now-lastProgress>0.15) { progress(@"download",downloaded,transferBytes);lastProgress=now; }
-            if(checkpoint>=64*1024*1024) { if(![store checkpoint:problem])return NO;checkpoint=0; }
+            if(checkpoint>=64*1024*1024) {
+                NSTimeInterval start=NSProcessInfo.processInfo.systemUptime;
+                BOOL saved=[store checkpoint:problem];
+                reportTiming(NSProcessInfo.processInfo.systemUptime-start);
+                checkpoint=0;
+                if(!saved)return NO;
+            }
             return YES;
-        } error:&failure])return NO;
+        } error:&failure];
+        if(checkpoint || !transferred)reportTiming(0);
+        if(!transferred)return NO;
         progress(@"download",downloaded,downloaded);
         // These bootstrap manifests are not necessarily in the download list.
         for(NSString *name in @[@"encoding",@"install",@"download"]) { @autoreleasepool {

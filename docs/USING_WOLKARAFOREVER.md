@@ -18,6 +18,13 @@ prepares a launch. The screen stays awake during a file check. Brief interruptio
 such as opening Control Centre do not cancel it. Switching to another app pauses
 unfinished work; returning to the home page resumes it without starting the game.
 
+If a connection drops or times out, the launcher retries the affected request after
+1, 2, 4, and 8 seconds. If all four retries fail, tap **Try again**. For the same build
+and game language, the updater reuses verified data saved on the device. The total shown
+under **Downloading new data** is what remains for the current attempt.
+
+During **Downloading new data**, the byte counts are followed by the recent verified download speed in MB/s, averaged over roughly 30 seconds, and an estimated time remaining at that speed.
+
 The first check of an imported installation still reads its game data. Later
 updates reuse checks for unchanged files, and long checks save their progress
 periodically so an unexpected app closure does not discard the whole scan.
@@ -137,6 +144,11 @@ on-screen keyboard includes text, symbols, and dictation entry; the gamepad has 
 size, opacity, grid, and haptic controls. Physical keyboard and controller input can also be
 mapped in the app.
 
+Select a chat destination or focus a game field before opening the keyboard.
+Without the add-on, open standard chat with **↵** in an empty draft. **Send** types the
+draft into the focused field and presses Return. **Replace** instead fills
+the selected game field and does not press Return; **↵** on the accessory bar is a plain Return.
+
 Touch settings use two columns when there is enough width and remain scrollable in smaller
 windows. **Triggers on the outside** swaps LT/LB and RT/RB positions without changing their
 inputs. New or reset layouts put the triggers inside; existing saved layouts keep their
@@ -161,6 +173,13 @@ on the button bindings you use in the game.
 Open **Settings → Technical details** for the app's current state and an exact failure
 message. Include that message and a redacted log in a support report. Do not share account
 credentials, API keys, signing data, pairing material, or device identifiers.
+
+During bulk download, `wolkaraforever/tools/pilot.sh log 12 'download timing:'` shows one
+summary per 64 MiB checkpoint and at the end of a partial window. Compare saved bytes
+with wall seconds. CDN request time and retry wait time sum completed work across up to
+four parallel requests and can exceed wall time. Received bytes include partial attempts.
+Write time covers the local payload writes; checkpoint time covers syncing and rebuilding
+the index during the transfer.
 
 Do not delete the app as a first repair step: it removes downloaded game data and enrollment
 state. If a download or startup fails, reopen the app, preserve its data, and use the

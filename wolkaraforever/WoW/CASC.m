@@ -407,7 +407,10 @@ static NSData *LocalIndexEntries(NSData *data, unsigned bucket, NSError **error)
     }
     uint8_t header[30]={0}; for(int i=0;i<16;i++)header[i]=hash[15-i]; PutLE(header+16,size,4);
     // Reserved header bytes remain zero, as in the public CASC storage format.
-    if(!WriteAll(_fd,header,30) || !WriteAll(_fd,data.bytes,data.length)) { Fail(error,@"Cannot write CASC data; check free space.");return NO; }
+    NSTimeInterval start=NSProcessInfo.processInfo.systemUptime;
+    BOOL wrote=WriteAll(_fd,header,30) && WriteAll(_fd,data.bytes,data.length);
+    _appendWriteSeconds+=NSProcessInfo.processInfo.systemUptime-start;
+    if(!wrote) { Fail(error,@"Cannot write CASC data; check free space.");return NO; }
     uint8_t entry[18]; memcpy(entry,hash,9);PutBE(entry+9,((uint64_t)_segment<<30)|_offset,5);PutLE(entry+14,size,4);
     _added[key]=[NSData dataWithBytes:entry length:18]; _offset+=size;
     // Only our append-only writer can advance a segment's stamp while keeping

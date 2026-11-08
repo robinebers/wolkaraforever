@@ -99,27 +99,35 @@
 @end
 
 @implementation TKWoWClient {
-    NSLock *_lock;
+    NSCondition *_lock;
     BOOL _cancelled;
     NSURLSession *_session;
     TKWoWTransfers *_transfers;
     NSError *_downloadFailure;
+    TKWoWTransferTiming _timing;
     NSData *_archiveTable;
     NSArray<NSString *> *_archives;
     NSString *_archiveConfig;
 }
 - (instancetype)init {
-    if ((self=[super init])) _lock=[NSLock new];
+    if ((self=[super init])) _lock=[NSCondition new];
     return self;
 }
 - (void)dealloc { [_session invalidateAndCancel]; }
 - (void)cancel {
-    [_lock lock]; _cancelled=YES; [_session invalidateAndCancel]; [_lock unlock];
+    [_lock lock]; _cancelled=YES; [_session invalidateAndCancel]; [_lock broadcast]; [_lock unlock];
+}
+- (TKWoWTransferTiming)takeTransferTiming {
+    [_lock lock];
+    TKWoWTransferTiming timing=_timing;
+    _timing=(TKWoWTransferTiming){0};
+    [_lock unlock];
+    return timing;
 }
 - (BOOL)cancelled { [_lock lock]; BOOL value=_cancelled; [_lock unlock]; return value; }
 - (void)failDownloads:(NSError *)error {
     [_lock lock];if(!_downloadFailure)_downloadFailure=error?:TKWoWError(@"Download failed.");
-    [_transfers cancel];[_lock unlock];
+    [_transfers cancel];[_lock broadcast];[_lock unlock];
 }
 - (NSURLSessionConfiguration *)sessionConfiguration {
     NSURLSessionConfiguration *config=NSURLSessionConfiguration.ephemeralSessionConfiguration;
@@ -135,7 +143,53 @@
 - (NSData *)range:(NSURL *)url offset:(uint64_t)offset size:(NSUInteger)size error:(NSError **)error {
     return [self transferURL:url offset:offset size:size limit:size error:error];
 }
+static BOOL RetryableNetworkError(NSError *error) {
+    if (![error.domain isEqual:NSURLErrorDomain]) return NO;
+    switch (error.code) {
+        case NSURLErrorNetworkConnectionLost:
+        case NSURLErrorTimedOut:
+        case NSURLErrorNotConnectedToInternet:
+        case NSURLErrorCannotConnectToHost:
+        case NSURLErrorCannotFindHost:
+        case NSURLErrorDNSLookupFailed:
+            return YES;
+        default:
+            return NO;
+    }
+}
 - (NSData *)transferURL:(NSURL *)url offset:(uint64_t)offset size:(NSUInteger)size limit:(NSUInteger)limit error:(NSError **)error {
+    const NSTimeInterval retryDelays[]={1,2,4,8};
+    NSError *failure=nil;
+    for (NSUInteger attempt=0; ; attempt++) {
+        NSData *data;
+        @autoreleasepool {
+            failure=nil;
+            data=[self attemptURL:url offset:offset size:size limit:limit error:&failure];
+        }
+        if (data) return data;
+        if (attempt>=sizeof(retryDelays)/sizeof(retryDelays[0]) || !RetryableNetworkError(failure)) break;
+
+        // Keep this request's slot in the bounded download window. Other ranges
+        // can finish, and cancellation or a terminal sibling failure wakes us.
+        NSDate *deadline=[NSDate dateWithTimeIntervalSinceNow:retryDelays[attempt]];
+        NSLog(@"[wow-update] Network error %ld; retrying request in %.0f s.",
+              (long)failure.code,retryDelays[attempt]);
+        [_lock lock];
+        NSTimeInterval waitStart=NSProcessInfo.processInfo.systemUptime;
+        while (!_cancelled && !_downloadFailure) {
+            if (![_lock waitUntilDate:deadline]) break;
+        }
+        _timing.backoffs++;
+        _timing.backoffSeconds+=NSProcessInfo.processInfo.systemUptime-waitStart;
+        BOOL stopped=_cancelled || _downloadFailure!=nil;
+        if (stopped) failure=_downloadFailure?:TKWoWError(@"Download cancelled.");
+        [_lock unlock];
+        if (stopped) break;
+    }
+    if (error) *error=failure;
+    return nil;
+}
+- (NSData *)attemptURL:(NSURL *)url offset:(uint64_t)offset size:(NSUInteger)size limit:(NSUInteger)limit error:(NSError **)error {
     if (![url.scheme isEqualToString:@"https"] || !url.host.length || url.user || url.password ||
         (size && offset>UINT64_MAX-(size-1))) {
         if (error) *error=TKWoWError(@"A valid HTTPS download URL and range are required.");
@@ -159,11 +213,18 @@
         [request setValue:[@"bytes=" stringByAppendingString:bounds] forHTTPHeaderField:@"Range"];
         transfer.range=[@"bytes " stringByAppendingString:bounds];
     }
+    NSTimeInterval requestStart=NSProcessInfo.processInfo.systemUptime;
     transfer.task=[_session dataTaskWithRequest:request];[_transfers add:transfer];[transfer.task resume];
     [_lock unlock];
     // Delegate completion is guaranteed by the resource timeout/cancellation.
     dispatch_semaphore_wait(transfer.done,DISPATCH_TIME_FOREVER);
-    [_lock lock]; BOOL cancelled=_cancelled; [_lock unlock];
+    NSTimeInterval elapsed=NSProcessInfo.processInfo.systemUptime-requestStart;
+    [_lock lock];
+    _timing.requests++;
+    _timing.requestSeconds+=elapsed;
+    _timing.receivedBytes+=transfer.data.length;
+    BOOL cancelled=_cancelled;
+    [_lock unlock];
     if (transfer.error || cancelled) {
         if (error) *error=transfer.error?:TKWoWError(@"Download cancelled.");
         return nil;

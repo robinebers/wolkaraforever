@@ -25,7 +25,7 @@ static UIColor *Muted(void) { return [UIColor colorWithRed:0.66 green:0.72 blue:
 // is the same row in the same language.
 static NSString *TKWoWLocaleName(NSString *locale) {
     static NSArray<NSString *> *known; static dispatch_once_t once;
-    dispatch_once(&once, ^{ known = @[@"enUS", @"esES", @"deDE"]; });
+    dispatch_once(&once, ^{ known = @[@"enUS", @"frFR", @"esES", @"deDE"]; });
     return WKLocalized([@"locale." stringByAppendingString:[known containsObject:locale] ? locale : @"enUS"]);
 }
 static NSString *TKWoWRegionName(NSString *region) {
@@ -122,6 +122,33 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
 }
 @end
 
+typedef struct {
+    double time;
+    uint64_t bytes;
+} DownloadSample;
+
+typedef struct {
+    DownloadSample samples[31];
+    unsigned count;
+} DownloadWindow;
+
+// Keep at most one sample per second and measure verified payload throughput.
+static double DownloadMBPerSecond(DownloadWindow *window, double now, uint64_t bytes) {
+    unsigned count=window->count;
+    unsigned first=0;
+    while (first+1<count && window->samples[first+1].time<=now-30) first++;
+    if (first) {
+        count-=first;
+        memmove(window->samples,window->samples+first,count*sizeof(DownloadSample));
+    }
+    DownloadSample start=count?window->samples[0]:(DownloadSample){now,bytes};
+    if (!count || now-window->samples[count-1].time>=1) {
+        window->samples[count++]=(DownloadSample){now,bytes};
+    }
+    window->count=count;
+    return now-start.time>=1 ? (bytes-start.bytes)/(now-start.time)/1e6 : -1;
+}
+
 @interface TKWoWViewController () <UIDocumentPickerDelegate>
 @end
 
@@ -147,6 +174,7 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
     UILabel *_updatesLabel;
     NSString *_updatePhase;
     uint64_t _updateDone, _updateTotal;
+    double _downloadMBps;
     UIProgressView *_progressBar;
     CAGradientLayer *_background;
     UIStackView *_columns;
@@ -176,8 +204,9 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
     for (NSDictionary *p in TKWoWProducts()) if ([p[@"id"] isEqual:[defaults stringForKey:@"WoWProduct"]]) _product=p;
     _region=[defaults stringForKey:@"WoWRegion"]?:@"eu";
     if (![@[@"eu",@"us",@"kr",@"tw"] containsObject:_region]) _region=@"eu";
+    // Older installs used English without writing a preference. Preserve their download plan.
     _locale=[defaults stringForKey:@"WoWLocale"]?:@"enUS";
-    if (![@[@"enUS",@"esES",@"deDE"] containsObject:_locale]) _locale=@"enUS";
+    if (![@[@"enUS",@"frFR",@"esES",@"deDE"] containsObject:_locale]) _locale=@"enUS";
     return self;
 }
 - (UIButton *)button:(NSString *)identifier action:(SEL)action {
@@ -584,14 +613,22 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
         if(updateAttempted) {
             __block NSString *lastPhase=nil;
             __block NSTimeInterval lastProgressLog=0;
+            __block DownloadWindow speedWindow={0};
             void (^progress)(NSString *,uint64_t,uint64_t)=^(NSString *phase,uint64_t done,uint64_t total) {
                 NSTimeInterval now=NSDate.timeIntervalSinceReferenceDate;
                 if(![lastPhase isEqual:phase] || now-lastProgressLog>=5) {
                     lastPhase=phase;lastProgressLog=now;
                     WKLog("wow", @"update progress: %@ %llu/%llu",phase,done,total);
                 }
+                double speed=-1;
+                if ([phase isEqual:@"download"]) {
+                    speed=DownloadMBPerSecond(&speedWindow,NSProcessInfo.processInfo.systemUptime,done);
+                } else {
+                    speedWindow.count=0;
+                }
                 dispatch_async(dispatch_get_main_queue(),^{
                     if(generation!=self->_generation)return;
+                    self->_downloadMBps=speed;
                     self->_plan=plan;self->_installation=installation;self->_updating=YES;
                     self->_updatePhase=phase;self->_updateDone=done;self->_updateTotal=total;[self render];
                 });
@@ -602,6 +639,7 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
                 [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"World of Warcraft"];
             TKWoWUpdater *updater=[[TKWoWUpdater alloc] initWithClient:client];
             updater.fullVerification=repair;
+            updater.timingLog=^(NSString *summary) { WKLog("wow", @"download timing: %@",summary); };
             if([updater updatePlan:plan root:root progress:progress error:&error]) {
                 [self->_library discover];installation=TKWoWInspectInstallation(self->_library,product,plan);error=nil;
                 // Editions without a bundled compatibility profile still need a
@@ -735,7 +773,7 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
         // is most likely to recognise - and only the "follow the iPad" choice is translated.
         NSString *title=language==WKAppLanguageSystem
             ? [NSString stringWithFormat:@"%@ (%@)", WKLocalized(@"lang.system"), localization.resolvedLanguageName]
-            : (language==WKAppLanguageGerman?@"Deutsch":@"English");
+            : [WKLocalization nativeNameForLanguage:language];
         [sheet addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
             (void)action;
             [self applyAppLanguage:language];
@@ -758,15 +796,17 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
 // the Game language row is always there for a later change of mind.
 - (void)offerGermanGameLanguage {
     NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
-    if (WKLocalization.shared.resolvedLanguage!=WKAppLanguageGerman) return;
-    if ([_locale isEqual:@"deDE"]) return;
+    WKAppLanguage appLanguage=WKLocalization.shared.resolvedLanguage;
+    NSString *gameLocale=appLanguage==WKAppLanguageGerman?@"deDE":appLanguage==WKAppLanguageFrench?@"frFR":nil;
+    if (!gameLocale) return;
+    if ([_locale isEqual:gameLocale]) return;
     if ([defaults boolForKey:@"WolkaraForeverGameLanguageOfferShown"]) return;
     [defaults setBool:YES forKey:@"WolkaraForeverGameLanguageOfferShown"];
     UIAlertController *sheet=[UIAlertController alertControllerWithTitle:WKLocalized(@"lang.confirm.title")
         message:WKLocalized(@"lang.confirm.message") preferredStyle:UIAlertControllerStyleActionSheet];
     [sheet addAction:[UIAlertAction actionWithTitle:WKLocalized(@"lang.confirm.yes") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         (void)action;
-        [self setGameLocale:@"deDE"];
+        [self setGameLocale:gameLocale];
         [self presentMessage:WKLocalized(@"lang.gameChanged.title") message:WKLocalized(@"lang.confirm.changed")];
     }]];
     // Declining is an answer, not a cancellation: the app language stays German, and only
@@ -912,6 +952,23 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
             NSString *total=counted?[bytes stringFromByteCount:(int64_t)_updateTotal]
                 :[number stringFromNumber:@(_updateTotal)];
             detail=[detail stringByAppendingFormat:@" · %@ / %@",done,total];
+            if ([_updatePhase isEqual:@"download"] && _downloadMBps>=0) {
+                number.minimumFractionDigits=1; number.maximumFractionDigits=1;
+                detail=[detail stringByAppendingFormat:@" · %@ MB/s",[number stringFromNumber:@(_downloadMBps)]];
+                if (_downloadMBps>0 && _updateTotal>_updateDone) {
+                    double seconds=(_updateTotal-_updateDone)/(_downloadMBps*1e6);
+                    if (seconds<=7*24*3600) {
+                        NSDateComponentsFormatter *duration=[NSDateComponentsFormatter new];
+                        duration.unitsStyle=NSDateComponentsFormatterUnitsStyleAbbreviated;
+                        duration.allowedUnits=seconds>=60 ? NSCalendarUnitHour|NSCalendarUnitMinute : NSCalendarUnitSecond;
+                        NSCalendar *calendar=[NSCalendar.currentCalendar copy];
+                        calendar.locale=number.locale;
+                        duration.calendar=calendar;
+                        NSString *estimate=[duration stringFromTimeInterval:MAX(1,ceil(seconds))];
+                        if (estimate.length) detail=[detail stringByAppendingFormat:@" · %@",WKLocalizedFormat(@"home.download.remaining",estimate)];
+                    }
+                }
+            }
         }
         action=WKLocalized(@"home.action.updating");
     } else if (_busy) {
@@ -1017,7 +1074,7 @@ static NSNotificationName const TKForeverLayoutDidChange = @"AKGamepadLayoutDidC
 }
 - (void)choosePreference:(BOOL)region {
     UIAlertController *sheet=[UIAlertController alertControllerWithTitle:region?WKLocalized(@"home.preferences.region"):WKLocalized(@"home.preferences.downloadLanguage") message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    NSArray *values=region?@[@"eu",@"us",@"kr",@"tw"]:@[@"enUS",@"esES",@"deDE"];
+    NSArray *values=region?@[@"eu",@"us",@"kr",@"tw"]:@[@"enUS",@"frFR",@"esES",@"deDE"];
     for (NSString *value in values) [sheet addAction:[UIAlertAction actionWithTitle:region?TKWoWRegionName(value):TKWoWLocaleName(value) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         (void)action;
         if (region) { self->_region=value; [NSUserDefaults.standardUserDefaults setObject:value forKey:@"WoWRegion"]; [self refresh]; }
